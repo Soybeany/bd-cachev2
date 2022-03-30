@@ -12,13 +12,19 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.source>8</maven.compiler.source>
         <maven.compiler.target>8</maven.compiler.target>
+        <bdlib.version>2.6.26</bdlib.version>
     </properties>
 
     <dependencies>
         <dependency>
             <groupId>com.github.Soybeany.bdlib-server</groupId>
             <artifactId>bd-util</artifactId>
-            <version>2.6.25</version>
+            <version>${bdlib.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.github.Soybeany.bdlib-server</groupId>
+            <artifactId>bd-exception</artifactId>
+            <version>${bdlib.version}</version>
         </dependency>
 
         <dependency>

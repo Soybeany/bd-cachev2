@@ -204,6 +204,12 @@ public class DataManager<Param, Data> {
         @Setter
         private boolean enableRenewExpiredCache;
 
+        /**
+         * 是否允许纳入全局管控
+         */
+        @Setter
+        private boolean enableGlobalControl = true;
+
         public static <Data> Builder<String, Data> get(String dataDesc, IDatasource<String, Data> datasource) {
             return new Builder<>(dataDesc, datasource, new IKeyConverter.Std());
         }
@@ -265,7 +271,9 @@ public class DataManager<Param, Data> {
                     enableRenewExpiredCache
             );
             // 保存并返回实例信息
-            MANAGERS.put(BdFileUtils.getUuid(), manager);
+            if (enableGlobalControl) {
+                MANAGERS.put(BdFileUtils.getUuid(), manager);
+            }
             return manager;
         }
 

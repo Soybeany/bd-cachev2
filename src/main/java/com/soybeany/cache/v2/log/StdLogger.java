@@ -24,14 +24,7 @@ public class StdLogger<Param, Data> implements ILogger<Param, Data> {
 
     @Override
     public void onGetData(DataContext<Param> context, DataPack<Data> pack) {
-        String from;
-        if (pack.provider instanceof ICacheStorage) {
-            from = "缓存(" + ((ICacheStorage<?, ?>) pack.provider).desc() + ")";
-        } else if (pack.provider instanceof IDatasource) {
-            from = "数据源";
-        } else {
-            from = "其它来源(" + pack.provider + ")";
-        }
+        String from = getFrom(pack.provider);
         String dataDesc = getDataDesc(context);
         String paramDesc = getParamDesc(context);
         if (pack.norm()) {
@@ -58,8 +51,22 @@ public class StdLogger<Param, Data> implements ILogger<Param, Data> {
     }
 
     @Override
+    public void onRenewExpiredCache(DataContext<Param> context, Object provider) {
+        mWriter.onWriteInfo("“" + getDataDesc(context) + "在“" + getFrom(provider) + "”中续期了“" + getParamDesc(context) + "”的缓存");
+    }
+
+    @Override
     public void onClearCache(String dataDesc, int... storageIndexes) {
         mWriter.onWriteInfo("“" + dataDesc + "”清空了" + getIndexMsg(storageIndexes) + "的缓存");
+    }
+
+    private String getFrom(Object provider) {
+        if (provider instanceof ICacheStorage) {
+            return "缓存(" + ((ICacheStorage<?, ?>) provider).desc() + ")";
+        } else if (provider instanceof IDatasource) {
+            return "数据源";
+        }
+        return "其它来源(" + provider + ")";
     }
 
     private String getDataDesc(DataContext<Param> context) {

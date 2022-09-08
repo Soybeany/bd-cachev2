@@ -1,5 +1,6 @@
 package com.soybeany.cache.v2.model;
 
+import com.soybeany.cache.v2.contract.ILogger;
 import lombok.RequiredArgsConstructor;
 
 /**
@@ -16,5 +17,7 @@ public class DataContext<Param> {
     public final String paramDesc;
     public final String paramKey;
     public final Param param;
+
+    public final ILogger<Param, ?> logger;
 
 }

@@ -143,7 +143,7 @@ public class DataManager<Param, Data> {
         if (null != paramDescConverter && paramDescConverter != paramKeyConverter) {
             paramDesc = paramDescConverter.getKey(param);
         }
-        return new DataContext<>(dataDesc, storageId, paramDesc, paramKey, param);
+        return new DataContext<>(dataDesc, storageId, paramDesc, paramKey, param, logger);
     }
 
     private DataPack<Data> innerGetDataPackDirectly(Param param, IDatasource<Param, Data> datasource) {

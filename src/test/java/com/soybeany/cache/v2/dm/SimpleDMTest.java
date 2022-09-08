@@ -67,9 +67,9 @@ public class SimpleDMTest {
         // 新增key则移除最旧的key
         String key4 = "key4";
         dataManager.getDataPack(key4);
-        lruStorage.onGetCache(new DataContext<>(null, null, null, key3, null));
+        lruStorage.onGetCache(new DataContext<>(null, null, null, key3, null, null));
         try {
-            lruStorage.onGetCache(new DataContext<>(null, null, null, key2, null));
+            lruStorage.onGetCache(new DataContext<>(null, null, null, key2, null, null));
             throw new Exception("不允许还持有缓存");
         } catch (NoCacheException e) {
             System.out.println("“" + key2 + "”的缓存已移除");

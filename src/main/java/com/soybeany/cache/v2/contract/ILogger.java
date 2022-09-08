@@ -27,6 +27,11 @@ public interface ILogger<Param, Data> {
     void onRemoveCache(DataContext<Param> context, int... storageIndexes);
 
     /**
+     * 为已过期缓存续期时的回调
+     */
+    void onRenewExpiredCache(DataContext<Param> context, Object provider);
+
+    /**
      * 清除缓存时的回调
      */
     void onClearCache(String dataDesc, int... storageIndexes);

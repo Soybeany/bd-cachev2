@@ -55,7 +55,7 @@ public class LruMemTimerStorageTest {
         // 检验
         Thread.sleep(300);
         try {
-            cacheStorage.onGetCache(new DataContext<>(null, null, null, key2, null));
+            cacheStorage.onGetCache(new DataContext<>(null, null, null, key2, null, null));
             throw new Exception("不允许还持有缓存");
         } catch (NoCacheException ignore) {
         }

@@ -53,17 +53,11 @@ class CacheNode<Param, Data> {
      * 获取数据并自动缓存
      */
     public DataPack<Data> getDataPackAndAutoCache(DataContext<Param> context, final IDatasource<Param, Data> datasource) {
-        return getDataFromCurNode(context, () -> {
-            // 加锁，避免并发时数据重复获取
-            Lock lock = getLock(context.paramKey);
-            lock.lock();
-            try {
-                // 再查一次本节点，避免由于并发多次调用下一节点
-                return getDataFromCurNode(context, () -> getDataFromNextNode(context, datasource));
-            } finally {
-                lock.unlock();
-            }
-        });
+        if (curStorage.needDoubleCheck()) {
+            return getDataFromCurNode(context, () -> doGetDataPackAndAutoCache(context, datasource));
+        } else {
+            return doGetDataPackAndAutoCache(context, datasource);
+        }
     }
 
     public void cacheData(DataContext<Param> context, DataPack<Data> pack) {
@@ -89,6 +83,18 @@ class CacheNode<Param, Data> {
                 callback.onInvoke(node);
             }
             node = node.nextNode;
+        }
+    }
+
+    private DataPack<Data> doGetDataPackAndAutoCache(DataContext<Param> context, final IDatasource<Param, Data> datasource) {
+        // 加锁，避免并发时数据重复获取
+        Lock lock = getLock(context.paramKey);
+        lock.lock();
+        try {
+            // 再查一次本节点，避免由于并发多次调用下一节点
+            return getDataFromCurNode(context, () -> getDataFromNextNode(context, datasource));
+        } finally {
+            lock.unlock();
         }
     }
 

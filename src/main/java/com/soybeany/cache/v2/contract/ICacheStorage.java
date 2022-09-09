@@ -30,6 +30,13 @@ public interface ICacheStorage<Param, Data> {
     }
 
     /**
+     * 在获取数据时，是否需要双重检查
+     */
+    default boolean needDoubleCheck() {
+        return true;
+    }
+
+    /**
      * 该存储器的描述
      *
      * @return 具体的描述文本

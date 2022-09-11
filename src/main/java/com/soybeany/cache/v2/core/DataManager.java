@@ -56,7 +56,7 @@ public class DataManager<Param, Data> {
     /**
      * 获得数据(默认方式)
      */
-    public Data getData(Param param) throws Exception {
+    public Data getData(Param param) {
         return getDataPack(param).getData();
     }
 
@@ -102,7 +102,7 @@ public class DataManager<Param, Data> {
     /**
      * 缓存异常，手动模式管理
      */
-    public void cacheException(Param param, Exception e) {
+    public void cacheException(Param param, RuntimeException e) {
         innerCacheData(param, DataCore.fromException(e));
     }
 

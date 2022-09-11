@@ -20,7 +20,11 @@ public class MultiKeyDMTest {
     private final DataManager<String, String> dataManager = DataManager.Builder
             .get("MultiExpiry", s -> {
                 System.out.println("“" + s + "”access datasource");
-                Thread.sleep(500);
+                try {
+                    Thread.sleep(500);
+                } catch (InterruptedException e) {
+                    throw new RuntimeException("休眠中断:" + e.getMessage());
+                }
                 return s;
             })
             .withCache(lruStorage)

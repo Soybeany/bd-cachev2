@@ -14,7 +14,7 @@ import org.junit.Test;
 public class ExceptionDMTest {
 
     IDatasource<String, String> datasource = s -> {
-        throw new Exception("测试");
+        throw new RuntimeException("测试");
     };
 
     ICacheStorage<String, String> cacheStorage = new LruMemCacheStorage.Builder<String, String>().build();

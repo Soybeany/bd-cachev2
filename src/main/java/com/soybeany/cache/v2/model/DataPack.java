@@ -27,7 +27,7 @@ public class DataPack<Data> {
         this.pTtl = Math.max(pTtl, 0);
     }
 
-    public Data getData() throws Exception {
+    public Data getData() {
         if (norm()) {
             return dataCore.data;
         }

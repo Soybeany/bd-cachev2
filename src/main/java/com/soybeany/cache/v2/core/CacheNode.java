@@ -44,7 +44,7 @@ class CacheNode<Param, Data> {
         try {
             Data data = datasource.onGetData(param);
             return new DataPack<>(DataCore.fromData(data), datasource, datasource.onSetupExpiry(data));
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             return new DataPack<>(DataCore.fromException(e), datasource, datasource.onSetupExpiry(e));
         }
     }

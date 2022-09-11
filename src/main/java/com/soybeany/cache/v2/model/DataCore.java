@@ -14,7 +14,7 @@ public class DataCore<Data> {
 
     public final boolean norm; // 是否为正常数据
     public final Data data; // 数据
-    public final Exception exception; // 相关的异常
+    public final RuntimeException exception; // 相关的异常
 
     public static <Data> String toJson(DataCore<Data> dataCore) {
         JsonInfo jsonInfo = new JsonInfo();
@@ -39,7 +39,7 @@ public class DataCore<Data> {
             return DataCore.fromData(GSON.fromJson(jsonInfo.dataJson, dataType));
         } else {
             ExceptionInfo exceptionInfo = jsonInfo.exceptionJson;
-            return DataCore.fromException((Exception) GSON.fromJson(exceptionInfo.json, Class.forName(exceptionInfo.clazz)));
+            return DataCore.fromException((RuntimeException) GSON.fromJson(exceptionInfo.json, Class.forName(exceptionInfo.clazz)));
         }
     }
 
@@ -47,11 +47,11 @@ public class DataCore<Data> {
         return new DataCore<>(true, data, null);
     }
 
-    public static <Data> DataCore<Data> fromException(Exception e) {
+    public static <Data> DataCore<Data> fromException(RuntimeException e) {
         return new DataCore<>(false, null, e);
     }
 
-    private DataCore(boolean norm, Data data, Exception exception) {
+    private DataCore(boolean norm, Data data, RuntimeException exception) {
         this.norm = norm;
         this.data = data;
         this.exception = exception;

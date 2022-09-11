@@ -19,12 +19,12 @@ public class RenewCacheDMTest {
         private boolean canSuccess = true;
 
         @Override
-        public String onGetData(String s) throws Exception {
+        public String onGetData(String s) {
             if (canSuccess) {
                 canSuccess = false;
                 return "success";
             }
-            throw new Exception("数据源异常");
+            throw new RuntimeException("数据源异常");
         }
     };
 

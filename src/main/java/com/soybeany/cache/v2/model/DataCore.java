@@ -39,7 +39,11 @@ public class DataCore<Data> {
             return DataCore.fromData(GSON.fromJson(jsonInfo.dataJson, dataType));
         } else {
             ExceptionInfo exceptionInfo = jsonInfo.exceptionJson;
-            return DataCore.fromException((RuntimeException) GSON.fromJson(exceptionInfo.json, Class.forName(exceptionInfo.clazz)));
+            Exception e = (Exception) GSON.fromJson(exceptionInfo.json, Class.forName(exceptionInfo.clazz));
+            if (!(e instanceof RuntimeException)) {
+                e = new RuntimeException(e);
+            }
+            return DataCore.fromException((RuntimeException) e);
         }
     }
 

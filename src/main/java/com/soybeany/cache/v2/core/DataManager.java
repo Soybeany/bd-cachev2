@@ -5,7 +5,7 @@ import com.soybeany.cache.v2.contract.ICacheStorage;
 import com.soybeany.cache.v2.contract.IDatasource;
 import com.soybeany.cache.v2.contract.IKeyConverter;
 import com.soybeany.cache.v2.contract.ILogger;
-import com.soybeany.cache.v2.exception.BdCacheRtException;
+import com.soybeany.cache.v2.exception.BdCacheException;
 import com.soybeany.cache.v2.model.DataContext;
 import com.soybeany.cache.v2.model.DataCore;
 import com.soybeany.cache.v2.model.DataPack;
@@ -219,8 +219,8 @@ public class DataManager<Param, Data> {
         }
 
         private Builder(String dataDesc, IDatasource<Param, Data> datasource, IKeyConverter<Param> keyConverter) {
-            this.dataDesc = Optional.ofNullable(dataDesc).orElseThrow(() -> new BdCacheRtException("dataDesc不能为null"));
-            Optional.ofNullable(keyConverter).orElseThrow(() -> new BdCacheRtException("keyConverter不能为null"));
+            this.dataDesc = Optional.ofNullable(dataDesc).orElseThrow(() -> new BdCacheException("dataDesc不能为null"));
+            Optional.ofNullable(keyConverter).orElseThrow(() -> new BdCacheException("keyConverter不能为null"));
             this.defaultDatasource = datasource;
             this.paramKeyConverter = keyConverter;
             this.paramDescConverter = keyConverter;
@@ -236,7 +236,7 @@ public class DataManager<Param, Data> {
          */
         public Builder<Param, Data> withCache(ICacheStorage<Param, Data> storage) {
             if (null == storage) {
-                throw new BdCacheRtException("storage不能为null");
+                throw new BdCacheException("storage不能为null");
             }
             // 添加到存储器列表
             mNodes.add(new CacheNode<>(storage, storage.priority() - mNodes.size()));

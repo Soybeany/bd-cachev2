@@ -28,11 +28,6 @@ public class DBSimulationStorage<Param, Data> extends StdStorage<Param, Data> {
     }
 
     @Override
-    public void onInit(String storageId) {
-        // 不作存储共享
-    }
-
-    @Override
     protected CacheEntity<Data> onLoadCacheEntity(DataContext<Param> context, String key) throws NoCacheException {
         if (!map.containsKey(key)) {
             throw new NoCacheException();

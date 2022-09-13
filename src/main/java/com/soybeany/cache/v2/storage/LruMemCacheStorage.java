@@ -1,15 +1,19 @@
 package com.soybeany.cache.v2.storage;
 
 import com.soybeany.cache.v2.contract.ICacheStorage;
+import com.soybeany.cache.v2.exception.BdCacheException;
 import com.soybeany.cache.v2.exception.NoCacheException;
 import com.soybeany.cache.v2.model.CacheEntity;
 import com.soybeany.cache.v2.model.DataContext;
+import com.soybeany.cache.v2.model.DataCore;
+import lombok.AllArgsConstructor;
+import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
 
+import java.lang.reflect.Type;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * @author Soybeany
@@ -17,17 +21,15 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class LruMemCacheStorage<Param, Data> extends StdStorage<Param, Data> {
 
-    @SuppressWarnings("rawtypes")
-    private static final Map<String, LruMap> MAP = new ConcurrentHashMap<>();
+    private final MapStorage<Data> mapStorage;
 
-    private LruMap<String, CacheEntity<Data>> mLruMap;
-    private final int capacity;
-    private final boolean enableShareStorage;
-
-    public LruMemCacheStorage(int pTtl, int pTtlErr, int capacity, boolean enableShareStorage) {
+    public LruMemCacheStorage(int pTtl, int pTtlErr, int capacity, Type dataType) {
         super(pTtl, pTtlErr);
-        this.capacity = capacity;
-        this.enableShareStorage = enableShareStorage;
+        if (null == dataType) {
+            mapStorage = new SimpleImpl<>(new LruMap<>(capacity));
+        } else {
+            mapStorage = new StringImpl<>(new LruMap<>(capacity), dataType);
+        }
     }
 
     @Override
@@ -35,33 +37,23 @@ public class LruMemCacheStorage<Param, Data> extends StdStorage<Param, Data> {
         return "LRU";
     }
 
-    @SuppressWarnings("unchecked")
-    @Override
-    public void onInit(String storageId) {
-        if (enableShareStorage) {
-            mLruMap = MAP.computeIfAbsent(storageId, id -> new LruMap<>(capacity));
-        } else {
-            mLruMap = new LruMap<>(capacity);
-        }
-    }
-
     @Override
     protected synchronized CacheEntity<Data> onLoadCacheEntity(DataContext<Param> context, String key) throws NoCacheException {
-        if (!mLruMap.containsKey(key)) {
+        if (!mapStorage.containsKey(key)) {
             throw new NoCacheException();
         }
-        return mLruMap.get(key);
+        return mapStorage.onLoad(key);
     }
 
     @Override
     protected synchronized CacheEntity<Data> onSaveCacheEntity(DataContext<Param> context, String key, CacheEntity<Data> entity) {
-        mLruMap.put(key, entity);
+        mapStorage.onSave(key, entity);
         return entity;
     }
 
     @Override
     protected void onRemoveCacheEntity(DataContext<Param> context, String key) {
-        mLruMap.remove(key);
+        mapStorage.getMap().remove(key);
     }
 
     @Override
@@ -71,12 +63,12 @@ public class LruMemCacheStorage<Param, Data> extends StdStorage<Param, Data> {
 
     @Override
     public synchronized void onClearCache(String storageId) {
-        mLruMap.clear();
+        mapStorage.getMap().clear();
     }
 
     @Override
     public int cachedDataCount(String storageId) {
-        return mLruMap.size();
+        return mapStorage.getMap().size();
     }
 
     // ***********************内部类****************************
@@ -89,15 +81,19 @@ public class LruMemCacheStorage<Param, Data> extends StdStorage<Param, Data> {
         @Setter
         protected int capacity = 100;
 
-        /**
-         * 设置storageId相同时，是否允许共享数据
-         */
-        @Setter
-        protected boolean enableShareStorage;
+        protected Type dataType;
 
         @Override
         protected ICacheStorage<Param, Data> onBuild() {
-            return new LruMemCacheStorage<>(pTtl, pTtlErr, capacity, enableShareStorage);
+            return new LruMemCacheStorage<>(pTtl, pTtlErr, capacity, dataType);
+        }
+
+        /**
+         * 缓存返回的数据
+         */
+        public Builder<Param, Data> copyData(Type dataType) {
+            this.dataType = dataType;
+            return this;
         }
     }
 
@@ -113,6 +109,74 @@ public class LruMemCacheStorage<Param, Data> extends StdStorage<Param, Data> {
         protected boolean removeEldestEntry(Map.Entry<K, V> eldest) {
             return size() > capacity;
         }
+    }
+
+    private interface MapStorage<Data> {
+        Map<String, ?> getMap();
+
+        CacheEntity<Data> onLoad(String key);
+
+        void onSave(String key, CacheEntity<Data> entity);
+
+        default boolean containsKey(String key) {
+            return getMap().containsKey(key);
+        }
+    }
+
+    @AllArgsConstructor
+    private static class SimpleImpl<Data> implements MapStorage<Data> {
+
+        private final LruMap<String, CacheEntity<Data>> lruMap;
+
+        @Override
+        public Map<String, ?> getMap() {
+            return lruMap;
+        }
+
+        @Override
+        public CacheEntity<Data> onLoad(String key) {
+            return lruMap.get(key);
+        }
+
+        @Override
+        public void onSave(String key, CacheEntity<Data> entity) {
+            lruMap.put(key, entity);
+        }
+    }
+
+    @AllArgsConstructor
+    private static class StringImpl<Data> implements MapStorage<Data> {
+
+        private final LruMap<String, Holder> lruMap;
+        private final Type type;
+
+        @Override
+        public Map<String, ?> getMap() {
+            return lruMap;
+        }
+
+        @Override
+        public CacheEntity<Data> onLoad(String key) {
+            Holder holder = lruMap.get(key);
+            DataCore<Data> core;
+            try {
+                core = DataCore.fromJson(holder.DataCoreJson, type);
+            } catch (ClassNotFoundException e) {
+                throw new BdCacheException("反序列化数据对象异常:" + e.getMessage());
+            }
+            return new CacheEntity<>(core, holder.pExpireAt);
+        }
+
+        @Override
+        public void onSave(String key, CacheEntity<Data> entity) {
+            lruMap.put(key, new Holder(DataCore.toJson(entity.dataCore), entity.pExpireAt));
+        }
+    }
+
+    @RequiredArgsConstructor
+    private static class Holder {
+        final String DataCoreJson;
+        final long pExpireAt;
     }
 
 }

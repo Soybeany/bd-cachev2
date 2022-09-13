@@ -48,7 +48,9 @@ public interface ICacheStorage<Param, Data> {
      *
      * @param storageId 数据存储的唯一id
      */
-    void onInit(String storageId);
+    default void onInit(String storageId) {
+        // 子类实现
+    }
 
     // ********************操作回调类********************
 

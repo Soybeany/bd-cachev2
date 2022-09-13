@@ -23,7 +23,7 @@ public class DeepCopyDMTest {
 
     private final DataManager<String, Data> dataManager2 = DataManager.Builder
             .get("深拷贝测试", datasource)
-            .withCache(new LruMemCacheStorage.Builder<String, Data>().copyData(Data.class).build())
+            .withCache(new LruMemCacheStorage.Builder<String, Data>().build().withDataCopy((Data.class)))
             .logger(new ConsoleLogger<>())
             .build();
 

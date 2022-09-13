@@ -21,15 +21,13 @@ import java.util.Map;
  */
 public class LruMemCacheStorage<Param, Data> extends StdStorage<Param, Data> {
 
-    private final MapStorage<Data> mapStorage;
+    private final int capacity;
+    private MapStorage<Data> mapStorage;
 
-    public LruMemCacheStorage(int pTtl, int pTtlErr, int capacity, Type dataType) {
+    public LruMemCacheStorage(int pTtl, int pTtlErr, int capacity) {
         super(pTtl, pTtlErr);
-        if (null == dataType) {
-            mapStorage = new SimpleImpl<>(new LruMap<>(capacity));
-        } else {
-            mapStorage = new StringImpl<>(new LruMap<>(capacity), dataType);
-        }
+        this.capacity = capacity;
+        mapStorage = new SimpleImpl<>(new LruMap<>(capacity));
     }
 
     @Override
@@ -71,6 +69,11 @@ public class LruMemCacheStorage<Param, Data> extends StdStorage<Param, Data> {
         return mapStorage.getMap().size();
     }
 
+    public LruMemCacheStorage<Param, Data> withDataCopy(Type type) {
+        mapStorage = new StringImpl<>(new LruMap<>(capacity), type);
+        return this;
+    }
+
     // ***********************内部类****************************
 
     @Accessors(fluent = true, chain = true)
@@ -81,19 +84,14 @@ public class LruMemCacheStorage<Param, Data> extends StdStorage<Param, Data> {
         @Setter
         protected int capacity = 100;
 
-        protected Type dataType;
-
         @Override
         protected ICacheStorage<Param, Data> onBuild() {
-            return new LruMemCacheStorage<>(pTtl, pTtlErr, capacity, dataType);
+            return new LruMemCacheStorage<>(pTtl, pTtlErr, capacity);
         }
 
-        /**
-         * 缓存返回的数据
-         */
-        public Builder<Param, Data> copyData(Type dataType) {
-            this.dataType = dataType;
-            return this;
+        @Override
+        public LruMemCacheStorage<Param, Data> build() {
+            return (LruMemCacheStorage<Param, Data>) super.build();
         }
     }
 

@@ -6,7 +6,6 @@ import com.soybeany.cache.v2.model.CacheEntity;
 import com.soybeany.cache.v2.model.DataContext;
 import com.soybeany.util.file.BdFileUtils;
 
-import java.lang.reflect.Type;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.Executors;
@@ -39,8 +38,8 @@ public class LruMemTimerCacheStorage<Param, Data> extends LruMemCacheStorage<Par
         }
     }
 
-    public LruMemTimerCacheStorage(int pTtl, int pTtlErr, int capacity, Type dataType) {
-        super(pTtl, pTtlErr, capacity, dataType);
+    public LruMemTimerCacheStorage(int pTtl, int pTtlErr, int capacity) {
+        super(pTtl, pTtlErr, capacity);
     }
 
     @Override
@@ -88,7 +87,7 @@ public class LruMemTimerCacheStorage<Param, Data> extends LruMemCacheStorage<Par
     public static class Builder<Param, Data> extends LruMemCacheStorage.Builder<Param, Data> {
         @Override
         protected ICacheStorage<Param, Data> onBuild() {
-            return new LruMemTimerCacheStorage<>(pTtl, pTtlErr, capacity, dataType);
+            return new LruMemTimerCacheStorage<>(pTtl, pTtlErr, capacity);
         }
     }
 

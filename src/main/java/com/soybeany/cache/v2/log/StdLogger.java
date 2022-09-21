@@ -52,7 +52,7 @@ public class StdLogger<Param, Data> implements ILogger<Param, Data> {
 
     @Override
     public void onRenewExpiredCache(DataContext<Param> context, Object provider) {
-        mWriter.onWriteInfo("“" + getDataDesc(context) + "在“" + getFrom(provider) + "”中续期了“" + getParamDesc(context) + "”的缓存");
+        mWriter.onWriteInfo("“" + getDataDesc(context) + "”在“" + getFrom(provider) + "”续期了“" + getParamDesc(context) + "”的缓存");
     }
 
     @Override

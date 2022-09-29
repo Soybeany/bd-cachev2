@@ -60,7 +60,7 @@ public class MultiKeyDMTest {
 
         @Override
         public DataPack<Data> onCacheData(DataContext<Param> context, DataPack<Data> dataPack) {
-            System.out.println("存数据:" + context.paramKey);
+            System.out.println("存数据:" + context.param.paramKey);
             try {
                 Thread.sleep(500);
             } catch (InterruptedException e) {

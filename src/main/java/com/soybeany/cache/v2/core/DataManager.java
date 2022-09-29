@@ -33,14 +33,12 @@ public class DataManager<Param, Data> {
 
     private static final Map<String, DataManager<?, ?>> MANAGERS = new ConcurrentHashMap<>();
 
-    private final String dataDesc;
-    private final String storageId;
+    private final DataContext.Core<Param, Data> contextCore;
     private final IDatasource<Param, Data> defaultDatasource;
     private final IKeyConverter<Param> paramDescConverter;
     private final IKeyConverter<Param> paramKeyConverter;
     @Getter(AccessLevel.NONE)
     private final CacheNode<Param, Data> firstNode;
-    private final ILogger<Param, Data> logger;
 
     private final List<ICacheStorage<Param, Data>> storages;
     private final boolean enableRenewExpiredCache;
@@ -79,8 +77,8 @@ public class DataManager<Param, Data> {
         DataContext<Param> context = getNewDataContext(param);
         DataPack<Data> pack = firstNode.getDataPackAndAutoCache(context, datasource);
         // 记录日志
-        if (null != logger) {
-            logger.onGetData(context, pack);
+        if (null != contextCore.logger) {
+            contextCore.logger.onGetData(context, pack);
         }
         return pack;
     }
@@ -107,6 +105,27 @@ public class DataManager<Param, Data> {
     }
 
     /**
+     * 批量缓存数据，手动模式管理
+     */
+    public void batchCacheData(Map<Param, Data> data) {
+        batchCache(data, null);
+    }
+
+    /**
+     * 批量缓存数据/异常，手动模式管理
+     */
+    public void batchCache(Map<Param, Data> data, Map<Param, RuntimeException> exceptions) {
+        Map<Param, DataCore<Data>> dataCores = new HashMap<>();
+        if (null != data) {
+            data.forEach((k, v) -> dataCores.put(k, DataCore.fromData(v)));
+        }
+        if (null != exceptions) {
+            exceptions.forEach((k, v) -> dataCores.put(k, DataCore.fromException(v)));
+        }
+        innerBatchCacheData(dataCores);
+    }
+
+    /**
      * 移除指定存储器中指定key的缓存
      */
     public void removeCache(Param param, int... storageIndexes) {
@@ -116,8 +135,8 @@ public class DataManager<Param, Data> {
         DataContext<Param> context = getNewDataContext(param);
         firstNode.removeCache(context, storageIndexes);
         // 记录日志
-        if (null != logger) {
-            logger.onRemoveCache(context, storageIndexes);
+        if (null != contextCore.logger) {
+            contextCore.logger.onRemoveCache(context, storageIndexes);
         }
     }
 
@@ -128,29 +147,33 @@ public class DataManager<Param, Data> {
         if (null == firstNode) {
             return;
         }
-        firstNode.clearCache(storageId, storageIndexes);
+        firstNode.clearCache(contextCore.storageId, storageIndexes);
         // 记录日志
-        if (null != logger) {
-            logger.onClearCache(dataDesc, storageIndexes);
+        if (null != contextCore.logger) {
+            contextCore.logger.onClearCache(contextCore.dataDesc, storageIndexes);
         }
     }
 
     // ********************内部方法********************
 
     private DataContext<Param> getNewDataContext(Param param) {
+        return new DataContext<>(contextCore, getNewDataContextParam(param));
+    }
+
+    private DataContext.Param<Param> getNewDataContextParam(Param param) {
         String paramKey = paramKeyConverter.getKey(param);
         String paramDesc = paramKey;
         if (null != paramDescConverter && paramDescConverter != paramKeyConverter) {
             paramDesc = paramDescConverter.getKey(param);
         }
-        return new DataContext<>(dataDesc, storageId, paramDesc, paramKey, param, logger);
+        return new DataContext.Param<>(paramDesc, paramKey, param);
     }
 
     private DataPack<Data> innerGetDataPackDirectly(Param param, IDatasource<Param, Data> datasource) {
         DataPack<Data> pack = CacheNode.getDataDirectly(this, param, datasource);
         // 记录日志
-        if (null != logger) {
-            logger.onGetData(getNewDataContext(param), pack);
+        if (null != contextCore.logger) {
+            contextCore.logger.onGetData(getNewDataContext(param), pack);
         }
         return pack;
     }
@@ -159,12 +182,29 @@ public class DataManager<Param, Data> {
         if (null == firstNode) {
             return;
         }
+        // 缓存数据
         DataContext<Param> context = getNewDataContext(param);
         DataPack<Data> pack = new DataPack<>(dataCore, this, Integer.MAX_VALUE);
         firstNode.cacheData(context, pack);
         // 记录日志
-        if (null != logger) {
-            logger.onCacheData(context, pack);
+        if (null != contextCore.logger) {
+            contextCore.logger.onCacheData(context, pack);
+        }
+    }
+
+    private void innerBatchCacheData(Map<Param, DataCore<Data>> dataCores) {
+        if (null == firstNode) {
+            return;
+        }
+        // 缓存数据
+        Map<DataContext.Param<Param>, DataPack<Data>> dataPacks = new HashMap<>();
+        dataCores.forEach((param, dataCore) ->
+                dataPacks.put(getNewDataContextParam(param), new DataPack<>(dataCore, this, Integer.MAX_VALUE))
+        );
+        firstNode.batchCacheData(contextCore, dataPacks);
+        // 记录日志
+        if (null != contextCore.logger) {
+            contextCore.logger.onBatchCacheData(contextCore, dataPacks);
         }
     }
 
@@ -260,13 +300,11 @@ public class DataManager<Param, Data> {
             CacheNode<Param, Data> firstNode = buildChain();
             // 创建管理器实例
             DataManager<Param, Data> manager = new DataManager<>(
-                    dataDesc,
-                    storageId,
+                    new DataContext.Core<>(dataDesc, storageId, logger),
                     defaultDatasource,
                     paramDescConverter,
                     paramKeyConverter,
                     firstNode,
-                    logger,
                     Collections.unmodifiableList(storages),
                     enableRenewExpiredCache
             );

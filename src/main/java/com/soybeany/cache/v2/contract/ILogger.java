@@ -3,6 +3,8 @@ package com.soybeany.cache.v2.contract;
 import com.soybeany.cache.v2.model.DataContext;
 import com.soybeany.cache.v2.model.DataPack;
 
+import java.util.Map;
+
 /**
  * 可用于日志输出
  *
@@ -20,6 +22,11 @@ public interface ILogger<Param, Data> {
      * 缓存数据时的回调
      */
     void onCacheData(DataContext<Param> context, DataPack<Data> pack);
+
+    /**
+     * 批量缓存数据时的回调
+     */
+    void onBatchCacheData(DataContext.Core<Param, Data> contextCore, Map<DataContext.Param<Param>, DataPack<Data>> dataPacks);
 
     /**
      * 移除缓存时的回调

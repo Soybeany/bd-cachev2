@@ -1,6 +1,7 @@
 package com.soybeany.cache.v2.model;
 
 import com.soybeany.cache.v2.contract.ILogger;
+import lombok.EqualsAndHashCode;
 import lombok.RequiredArgsConstructor;
 
 /**
@@ -10,14 +11,25 @@ import lombok.RequiredArgsConstructor;
  * @date 2020/11/19
  */
 @RequiredArgsConstructor
-public class DataContext<Param> {
+public class DataContext<P> {
 
-    public final String dataDesc;
-    public final String storageId;
-    public final String paramDesc;
-    public final String paramKey;
-    public final Param param;
+    public final Core<P, ?> core;
+    public final Param<P> param;
 
-    public final ILogger<Param, ?> logger;
+    @RequiredArgsConstructor
+    public static class Core<P, Data> {
+        public final String dataDesc;
+        public final String storageId;
+        public final ILogger<P, Data> logger;
+
+    }
+
+    @EqualsAndHashCode
+    @RequiredArgsConstructor
+    public static class Param<P> {
+        public final String paramDesc;
+        public final String paramKey;
+        public final P param;
+    }
 
 }

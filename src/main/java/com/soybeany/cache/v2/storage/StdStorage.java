@@ -58,7 +58,7 @@ public abstract class StdStorage<Param, Data> implements ICacheStorage<Param, Da
             // 重新持久化一个使用新过期时间的info
             CacheEntity<Data> newCacheEntity = new CacheEntity<>(cacheEntity.dataCore, curTimestamp + pTtlErr);
             onSaveCacheEntity(context, key, newCacheEntity);
-            context.logger.onRenewExpiredCache(context, this);
+            context.core.logger.onRenewExpiredCache(context, this);
             return CacheEntity.toDataPack(newCacheEntity, this, curTimestamp);
         } catch (NoCacheException e) {
             // 没有本地缓存，按常规处理
@@ -97,7 +97,7 @@ public abstract class StdStorage<Param, Data> implements ICacheStorage<Param, Da
     // ***********************内部方法****************************
 
     private String getKey(DataContext<Param> context) {
-        return keyConverter.getKey(context.paramKey);
+        return keyConverter.getKey(context.param.paramKey);
     }
 
     private DataPack<Data> simpleCacheData(DataContext<Param> context, String key, DataPack<Data> data) {

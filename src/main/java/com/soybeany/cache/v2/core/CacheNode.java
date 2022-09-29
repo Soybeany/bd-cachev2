@@ -11,10 +11,7 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
-import java.util.WeakHashMap;
+import java.util.*;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -61,7 +58,11 @@ class CacheNode<Param, Data> {
     }
 
     public void cacheData(DataContext<Param> context, DataPack<Data> pack) {
-        traverse(node -> node.curStorage.onCacheData(context, pack));
+        traverseR((node, prePack) -> node.curStorage.onCacheData(context, prePack), pack);
+    }
+
+    public void batchCacheData(DataContext.Core<Param, Data> contextCore, Map<DataContext.Param<Param>, DataPack<Data>> dataPacks) {
+        traverseR((node, prePacks) -> node.curStorage.onBatchCacheData(contextCore, prePacks), dataPacks);
     }
 
     public void removeCache(DataContext<Param> context, int... storageIndexes) {
@@ -73,6 +74,20 @@ class CacheNode<Param, Data> {
     }
 
     // ****************************************内部方法****************************************
+
+    private <T> void traverseR(ICallback4<Param, Data, T> callback, T previous) {
+        List<CacheNode<Param, Data>> nodes = new ArrayList<>();
+        CacheNode<Param, Data> node = this;
+        // 得到正向列表
+        while (null != node) {
+            nodes.add(node);
+            node = node.nextNode;
+        }
+        // 反向遍历
+        for (int i = nodes.size() - 1; i >= 0; i--) {
+            previous = callback.onInvoke(nodes.get(i), previous);
+        }
+    }
 
     private void traverse(ICallback2<Param, Data> callback, int... storageIndexes) {
         ICallback3 callback3 = getCallback3(storageIndexes);
@@ -88,7 +103,7 @@ class CacheNode<Param, Data> {
 
     private DataPack<Data> doGetDataPackAndAutoCache(DataContext<Param> context, final IDatasource<Param, Data> datasource) {
         // 加锁，避免并发时数据重复获取
-        Lock lock = getLock(context.paramKey);
+        Lock lock = getLock(context.param.paramKey);
         lock.lock();
         try {
             // 再查一次本节点，避免由于并发多次调用下一节点
@@ -105,7 +120,7 @@ class CacheNode<Param, Data> {
         DataPack<Data> pack;
         // 若没有下一节点，则从数据源获取
         if (null == nextNode) {
-            pack = getDataDirectly(curStorage, context.param, datasource);
+            pack = getDataDirectly(curStorage, context.param.param, datasource);
         }
         // 否则从下一节点获取缓存
         else {
@@ -154,6 +169,10 @@ class CacheNode<Param, Data> {
 
     private interface ICallback3 {
         boolean shouldInvoke(int index);
+    }
+
+    private interface ICallback4<Param, Data, T> {
+        T onInvoke(CacheNode<Param, Data> node, T previous);
     }
 
 }

@@ -8,6 +8,7 @@ import com.soybeany.cache.v2.model.DataPack;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 /**
@@ -25,8 +26,8 @@ public class StdLogger<Param, Data> implements ILogger<Param, Data> {
     @Override
     public void onGetData(DataContext<Param> context, DataPack<Data> pack) {
         String from = getFrom(pack.provider);
-        String dataDesc = getDataDesc(context);
-        String paramDesc = getParamDesc(context);
+        String dataDesc = getDataDesc(context.core);
+        String paramDesc = getParamDesc(context.param);
         if (pack.norm()) {
             mWriter.onWriteInfo("“" + dataDesc + "”从“" + from + "”获取了“" + paramDesc + "”的数据");
         } else {
@@ -36,8 +37,8 @@ public class StdLogger<Param, Data> implements ILogger<Param, Data> {
 
     @Override
     public void onCacheData(DataContext<Param> context, DataPack<Data> pack) {
-        String dataDesc = getDataDesc(context);
-        String paramDesc = getParamDesc(context);
+        String dataDesc = getDataDesc(context.core);
+        String paramDesc = getParamDesc(context.param);
         if (pack.norm()) {
             mWriter.onWriteInfo("“" + dataDesc + "”缓存了“" + paramDesc + "”的数据");
         } else {
@@ -46,13 +47,33 @@ public class StdLogger<Param, Data> implements ILogger<Param, Data> {
     }
 
     @Override
+    public void onBatchCacheData(DataContext.Core<Param, Data> contextCore, Map<DataContext.Param<Param>, DataPack<Data>> dataPacks) {
+        String dataDesc = getDataDesc(contextCore);
+        List<String> dataList = new ArrayList<>();
+        List<String> exceptionList = new ArrayList<>();
+        // 分类存储
+        dataPacks.forEach((param, pack) -> {
+            String paramDesc = getParamDesc(param);
+            List<String> list = pack.norm() ? dataList : exceptionList;
+            list.add(paramDesc);
+        });
+        // 打印
+        if (!dataList.isEmpty()) {
+            mWriter.onWriteInfo("“" + dataDesc + "”批量缓存了数据，“" + dataList + "”");
+        }
+        if (!exceptionList.isEmpty()) {
+            mWriter.onWriteWarn("“" + dataDesc + "”批量缓存了异常，“" + exceptionList + "”");
+        }
+    }
+
+    @Override
     public void onRemoveCache(DataContext<Param> context, int... storageIndexes) {
-        mWriter.onWriteInfo("“" + getDataDesc(context) + "”移除了" + getIndexMsg(storageIndexes) + "中“" + getParamDesc(context) + "”的缓存");
+        mWriter.onWriteInfo("“" + getDataDesc(context.core) + "”移除了" + getIndexMsg(storageIndexes) + "中“" + getParamDesc(context.param) + "”的缓存");
     }
 
     @Override
     public void onRenewExpiredCache(DataContext<Param> context, Object provider) {
-        mWriter.onWriteInfo("“" + getDataDesc(context) + "”在“" + getFrom(provider) + "”续期了“" + getParamDesc(context) + "”的缓存");
+        mWriter.onWriteInfo("“" + getDataDesc(context.core) + "”在“" + getFrom(provider) + "”续期了“" + getParamDesc(context.param) + "”的缓存");
     }
 
     @Override
@@ -69,18 +90,18 @@ public class StdLogger<Param, Data> implements ILogger<Param, Data> {
         return "其它来源(" + provider + ")";
     }
 
-    private String getDataDesc(DataContext<Param> context) {
-        String desc = context.dataDesc;
-        if (!Objects.equals(context.dataDesc, context.storageId)) {
-            desc += "(" + context.storageId + ")";
+    private String getDataDesc(DataContext.Core<Param, ?> contextCore) {
+        String desc = contextCore.dataDesc;
+        if (!Objects.equals(contextCore.dataDesc, contextCore.storageId)) {
+            desc += "(" + contextCore.storageId + ")";
         }
         return desc;
     }
 
-    private String getParamDesc(DataContext<Param> context) {
-        String desc = context.paramDesc;
-        if (!Objects.equals(context.paramDesc, context.paramKey)) {
-            desc += "(" + context.paramKey + ")";
+    private String getParamDesc(DataContext.Param<Param> contextParam) {
+        String desc = contextParam.paramDesc;
+        if (!Objects.equals(contextParam.paramDesc, contextParam.paramKey)) {
+            desc += "(" + contextParam.paramKey + ")";
         }
         return desc;
     }

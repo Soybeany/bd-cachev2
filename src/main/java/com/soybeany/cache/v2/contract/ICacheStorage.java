@@ -5,6 +5,9 @@ import com.soybeany.cache.v2.exception.NoCacheException;
 import com.soybeany.cache.v2.model.DataContext;
 import com.soybeany.cache.v2.model.DataPack;
 
+import java.util.HashMap;
+import java.util.Map;
+
 /**
  * 缓存存储器
  *
@@ -70,6 +73,19 @@ public interface ICacheStorage<Param, Data> {
      * @return 返回至上一级的数据
      */
     DataPack<Data> onCacheData(DataContext<Param> context, DataPack<Data> dataPack);
+
+    /**
+     * 批量缓存数据
+     *
+     * @param contextCore 上下文核心，含有当前环境的一些固定信息
+     * @param dataPacks   待缓存的数据
+     * @return 返回至上一级的数据
+     */
+    default Map<DataContext.Param<Param>, DataPack<Data>> onBatchCacheData(DataContext.Core<Param, Data> contextCore, Map<DataContext.Param<Param>, DataPack<Data>> dataPacks) {
+        Map<DataContext.Param<Param>, DataPack<Data>> result = new HashMap<>();
+        dataPacks.forEach((k, v) -> result.put(k, onCacheData(new DataContext<>(contextCore, k), v)));
+        return result;
+    }
 
     /**
      * 移除指定的缓存

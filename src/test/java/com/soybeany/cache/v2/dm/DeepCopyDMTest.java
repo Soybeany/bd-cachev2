@@ -4,7 +4,6 @@ import com.soybeany.cache.v2.contract.IDatasource;
 import com.soybeany.cache.v2.core.DataManager;
 import com.soybeany.cache.v2.log.ConsoleLogger;
 import com.soybeany.cache.v2.storage.LruMemCacheStorage;
-import lombok.AllArgsConstructor;
 import org.junit.Test;
 
 /**
@@ -42,10 +41,14 @@ public class DeepCopyDMTest {
         assert key.equals(data4.key);
     }
 
-    @AllArgsConstructor
     private static class Data {
         String key;
         Integer b;
+
+        public Data(String key, Integer b) {
+            this.key = key;
+            this.b = b;
+        }
     }
 
 }

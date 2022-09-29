@@ -7,9 +7,6 @@ import com.soybeany.cache.v2.exception.NoDataSourceException;
 import com.soybeany.cache.v2.model.DataContext;
 import com.soybeany.cache.v2.model.DataCore;
 import com.soybeany.cache.v2.model.DataPack;
-import lombok.Getter;
-import lombok.RequiredArgsConstructor;
-import lombok.Setter;
 
 import java.util.*;
 import java.util.concurrent.locks.Lock;
@@ -21,15 +18,11 @@ import java.util.concurrent.locks.ReentrantLock;
  * @author Soybeany
  * @date 2020/1/20
  */
-@RequiredArgsConstructor
 class CacheNode<Param, Data> {
 
     private final Map<String, Lock> mKeyMap = new WeakHashMap<>();
-    @Getter
     private final ICacheStorage<Param, Data> curStorage;
-    @Getter
     private final int priority;
-    @Setter
     private CacheNode<Param, Data> nextNode;
 
     public static <Param, Data> DataPack<Data> getDataDirectly(Object invoker, Param param, IDatasource<Param, Data> datasource) {
@@ -44,6 +37,23 @@ class CacheNode<Param, Data> {
         } catch (RuntimeException e) {
             return new DataPack<>(DataCore.fromException(e), datasource, datasource.onSetupExpiry(e));
         }
+    }
+
+    public CacheNode(ICacheStorage<Param, Data> curStorage, int priority) {
+        this.curStorage = curStorage;
+        this.priority = priority;
+    }
+
+    public ICacheStorage<Param, Data> getCurStorage() {
+        return curStorage;
+    }
+
+    public int getPriority() {
+        return priority;
+    }
+
+    public void setNextNode(CacheNode<Param, Data> nextNode) {
+        this.nextNode = nextNode;
     }
 
     /**

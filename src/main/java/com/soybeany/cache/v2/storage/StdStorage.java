@@ -6,20 +6,22 @@ import com.soybeany.cache.v2.exception.NoCacheException;
 import com.soybeany.cache.v2.model.CacheEntity;
 import com.soybeany.cache.v2.model.DataContext;
 import com.soybeany.cache.v2.model.DataPack;
-import lombok.NonNull;
-import lombok.RequiredArgsConstructor;
 
 /**
  * @author Soybeany
  * @date 2022/2/9
  */
-@RequiredArgsConstructor
 public abstract class StdStorage<Param, Data> implements ICacheStorage<Param, Data> {
 
     private final IKeyConverter<String> keyConverter = onSetupKeyConverter();
-    private final int pTtl;
-    private final int pTtlErr;
+    protected final int pTtl;
+    protected final int pTtlErr;
     private boolean enableRenewExpiredCache;
+
+    public StdStorage(int pTtl, int pTtlErr) {
+        this.pTtl = pTtl;
+        this.pTtlErr = pTtlErr;
+    }
 
     @Override
     public DataPack<Data> onGetCache(DataContext<Param> context) throws NoCacheException {
@@ -81,7 +83,6 @@ public abstract class StdStorage<Param, Data> implements ICacheStorage<Param, Da
     /**
      * 允许子类重新定义读取/存储时的key
      */
-    @NonNull
     protected IKeyConverter<String> onSetupKeyConverter() {
         return key -> key;
     }

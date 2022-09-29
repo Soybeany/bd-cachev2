@@ -1,12 +1,9 @@
 package com.soybeany.cache.v2.model;
 
-import lombok.RequiredArgsConstructor;
-
 /**
  * 缓存存储器内部使用的实体
  * <br>Created by Soybeany on 2020/11/25.
  */
-@RequiredArgsConstructor
 public class CacheEntity<Data> {
 
     /**
@@ -27,6 +24,11 @@ public class CacheEntity<Data> {
 
     public static <Data> DataPack<Data> toDataPack(CacheEntity<Data> entity, Object provider, long curTimestamp) {
         return new DataPack<>(entity.dataCore, provider, (int) (entity.pExpireAt - curTimestamp));
+    }
+
+    public CacheEntity(DataCore<Data> dataCore, long pExpireAt) {
+        this.dataCore = dataCore;
+        this.pExpireAt = pExpireAt;
     }
 
     public boolean isExpired(long curTimestamp) {

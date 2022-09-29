@@ -10,11 +10,6 @@ import com.soybeany.cache.v2.model.DataContext;
 import com.soybeany.cache.v2.model.DataCore;
 import com.soybeany.cache.v2.model.DataPack;
 import com.soybeany.util.file.BdFileUtils;
-import lombok.AccessLevel;
-import lombok.Getter;
-import lombok.RequiredArgsConstructor;
-import lombok.Setter;
-import lombok.experimental.Accessors;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -25,10 +20,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * @author Soybeany
  * @date 2020/1/19
  */
-@SuppressWarnings("UnusedReturnValue")
-@Getter
-@Accessors(fluent = true)
-@RequiredArgsConstructor
+@SuppressWarnings({"UnusedReturnValue", "unused"})
 public class DataManager<Param, Data> {
 
     private static final Map<String, DataManager<?, ?>> MANAGERS = new ConcurrentHashMap<>();
@@ -37,7 +29,6 @@ public class DataManager<Param, Data> {
     private final IDatasource<Param, Data> defaultDatasource;
     private final IKeyConverter<Param> paramDescConverter;
     private final IKeyConverter<Param> paramKeyConverter;
-    @Getter(AccessLevel.NONE)
     private final CacheNode<Param, Data> firstNode;
 
     private final List<ICacheStorage<Param, Data>> storages;
@@ -47,6 +38,46 @@ public class DataManager<Param, Data> {
 
     public static Map<String, DataManager<?, ?>> getAllManagers() {
         return Collections.unmodifiableMap(MANAGERS);
+    }
+
+    public DataManager(DataContext.Core<Param, Data> contextCore,
+                       IDatasource<Param, Data> defaultDatasource,
+                       IKeyConverter<Param> paramDescConverter,
+                       IKeyConverter<Param> paramKeyConverter,
+                       CacheNode<Param, Data> firstNode,
+                       List<ICacheStorage<Param, Data>> storages,
+                       boolean enableRenewExpiredCache) {
+        this.contextCore = contextCore;
+        this.defaultDatasource = defaultDatasource;
+        this.paramDescConverter = paramDescConverter;
+        this.paramKeyConverter = paramKeyConverter;
+        this.firstNode = firstNode;
+        this.storages = storages;
+        this.enableRenewExpiredCache = enableRenewExpiredCache;
+    }
+
+    public DataContext.Core<Param, Data> contextCore() {
+        return contextCore;
+    }
+
+    public IDatasource<Param, Data> defaultDatasource() {
+        return defaultDatasource;
+    }
+
+    public IKeyConverter<Param> paramDescConverter() {
+        return paramDescConverter;
+    }
+
+    public IKeyConverter<Param> paramKeyConverter() {
+        return paramKeyConverter;
+    }
+
+    public List<ICacheStorage<Param, Data>> storages() {
+        return storages;
+    }
+
+    public boolean enableRenewExpiredCache() {
+        return enableRenewExpiredCache;
     }
 
     // ********************操作********************
@@ -210,7 +241,6 @@ public class DataManager<Param, Data> {
 
     // ********************内部类********************
 
-    @Accessors(fluent = true, chain = true)
     public static class Builder<Param, Data> {
 
         private final List<CacheNode<Param, Data>> mNodes = new ArrayList<>();
@@ -221,7 +251,6 @@ public class DataManager<Param, Data> {
         /**
          * 数据存储的唯一id，某些存储方式会将相同的storageId共享存储
          */
-        @Setter
         private String storageId;
 
         /**
@@ -229,25 +258,21 @@ public class DataManager<Param, Data> {
          * <br>* 根据入参定义自动输出的日志中使用的paramDesc
          * <br>* 默认使用构造时指定的“defaultConverter”
          */
-        @Setter
         private IKeyConverter<Param> paramDescConverter;
 
         /**
          * 若需要记录日志，则配置该logger
          */
-        @Setter
         private ILogger<Param, Data> logger;
 
         /**
          * 是否允许在数据源出现异常时，使用上一次已失效的缓存数据，使用异常的生存时间
          */
-        @Setter
         private boolean enableRenewExpiredCache;
 
         /**
          * 是否允许纳入全局管控
          */
-        @Setter
         private boolean enableGlobalControl = true;
 
         public static <Data> Builder<String, Data> get(String dataDesc, IDatasource<String, Data> datasource) {
@@ -264,6 +289,31 @@ public class DataManager<Param, Data> {
             this.defaultDatasource = datasource;
             this.paramKeyConverter = keyConverter;
             this.paramDescConverter = keyConverter;
+        }
+
+        public Builder<Param, Data> storageId(String storageId) {
+            this.storageId = storageId;
+            return this;
+        }
+
+        public Builder<Param, Data> paramDescConverter(IKeyConverter<Param> paramDescConverter) {
+            this.paramDescConverter = paramDescConverter;
+            return this;
+        }
+
+        public Builder<Param, Data> logger(ILogger<Param, Data> logger) {
+            this.logger = logger;
+            return this;
+        }
+
+        public Builder<Param, Data> enableRenewExpiredCache(boolean flag) {
+            this.enableRenewExpiredCache = flag;
+            return this;
+        }
+
+        public Builder<Param, Data> enableGlobalControl(boolean flag) {
+            this.enableGlobalControl = flag;
+            return this;
         }
 
         // ********************设置********************

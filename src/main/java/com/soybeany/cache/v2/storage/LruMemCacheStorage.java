@@ -6,10 +6,6 @@ import com.soybeany.cache.v2.exception.NoCacheException;
 import com.soybeany.cache.v2.model.CacheEntity;
 import com.soybeany.cache.v2.model.DataContext;
 import com.soybeany.cache.v2.model.DataCore;
-import lombok.AllArgsConstructor;
-import lombok.RequiredArgsConstructor;
-import lombok.Setter;
-import lombok.experimental.Accessors;
 
 import java.lang.reflect.Type;
 import java.util.LinkedHashMap;
@@ -76,13 +72,16 @@ public class LruMemCacheStorage<Param, Data> extends StdStorage<Param, Data> {
 
     // ***********************内部类****************************
 
-    @Accessors(fluent = true, chain = true)
     public static class Builder<Param, Data> extends StdStorageBuilder<Param, Data> {
         /**
          * 设置用于存放数据的队列容量
          */
-        @Setter
         protected int capacity = 100;
+
+        public Builder<Param, Data> capacity(int capacity) {
+            this.capacity = capacity;
+            return this;
+        }
 
         @Override
         protected ICacheStorage<Param, Data> onBuild() {
@@ -121,10 +120,13 @@ public class LruMemCacheStorage<Param, Data> extends StdStorage<Param, Data> {
         }
     }
 
-    @AllArgsConstructor
     private static class SimpleImpl<Data> implements MapStorage<Data> {
 
         private final LruMap<String, CacheEntity<Data>> lruMap;
+
+        public SimpleImpl(LruMap<String, CacheEntity<Data>> lruMap) {
+            this.lruMap = lruMap;
+        }
 
         @Override
         public Map<String, ?> getMap() {
@@ -142,11 +144,15 @@ public class LruMemCacheStorage<Param, Data> extends StdStorage<Param, Data> {
         }
     }
 
-    @AllArgsConstructor
     private static class StringImpl<Data> implements MapStorage<Data> {
 
         private final LruMap<String, Holder> lruMap;
         private final Type type;
+
+        public StringImpl(LruMap<String, Holder> lruMap, Type type) {
+            this.lruMap = lruMap;
+            this.type = type;
+        }
 
         @Override
         public Map<String, ?> getMap() {
@@ -171,10 +177,14 @@ public class LruMemCacheStorage<Param, Data> extends StdStorage<Param, Data> {
         }
     }
 
-    @RequiredArgsConstructor
     private static class Holder {
         final String DataCoreJson;
         final long pExpireAt;
+
+        public Holder(String dataCoreJson, long pExpireAt) {
+            DataCoreJson = dataCoreJson;
+            this.pExpireAt = pExpireAt;
+        }
     }
 
 }

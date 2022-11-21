@@ -87,6 +87,13 @@ public abstract class StdStorage<Param, Data> implements ICacheStorage<Param, Da
         return key -> key;
     }
 
+    protected DataPack<Data> onRewriteCacheData(CacheEntity<Data> cacheEntity, CacheEntity<Data> newCacheEntity, DataPack<Data> data) {
+        if (newCacheEntity == cacheEntity) {
+            return data;
+        }
+        return CacheEntity.toDataPack(newCacheEntity, this, onGetCurTimestamp());
+    }
+
     protected abstract CacheEntity<Data> onLoadCacheEntity(DataContext<Param> context, String key) throws NoCacheException;
 
     protected abstract CacheEntity<Data> onSaveCacheEntity(DataContext<Param> context, String key, CacheEntity<Data> entity);
@@ -104,10 +111,7 @@ public abstract class StdStorage<Param, Data> implements ICacheStorage<Param, Da
     private DataPack<Data> simpleCacheData(DataContext<Param> context, String key, DataPack<Data> data) {
         CacheEntity<Data> cacheEntity = CacheEntity.fromDataPack(data, onGetCurTimestamp(), pTtl, pTtlErr);
         CacheEntity<Data> newCacheEntity = onSaveCacheEntity(context, key, cacheEntity);
-        if (newCacheEntity == cacheEntity) {
-            return data;
-        }
-        return CacheEntity.toDataPack(newCacheEntity, this, onGetCurTimestamp());
+        return onRewriteCacheData(cacheEntity, newCacheEntity, data);
     }
 
 }

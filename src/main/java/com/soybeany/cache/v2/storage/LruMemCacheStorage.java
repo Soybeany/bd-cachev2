@@ -1,14 +1,11 @@
 package com.soybeany.cache.v2.storage;
 
 import com.soybeany.cache.v2.contract.ICacheStorage;
-import com.soybeany.cache.v2.exception.BdCacheException;
 import com.soybeany.cache.v2.exception.NoCacheException;
 import com.soybeany.cache.v2.model.CacheEntity;
 import com.soybeany.cache.v2.model.DataContext;
-import com.soybeany.cache.v2.model.DataCore;
 
 import java.lang.ref.WeakReference;
-import java.lang.reflect.Type;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -19,13 +16,15 @@ import java.util.Optional;
  */
 public class LruMemCacheStorage<Param, Data> extends StdStorage<Param, Data> {
 
-    private final int capacity;
-    private MapStorage<Data> mapStorage;
+    private final MapStorage<Data> mapStorage;
 
     public LruMemCacheStorage(int pTtl, int pTtlErr, int capacity) {
+        this(pTtl, pTtlErr, new SimpleImpl<>(new LruMap<>(capacity)));
+    }
+
+    private LruMemCacheStorage(int pTtl, int pTtlErr, MapStorage<Data> storage) {
         super(pTtl, pTtlErr);
-        this.capacity = capacity;
-        mapStorage = new SimpleImpl<>(new LruMap<>(capacity));
+        mapStorage = storage;
     }
 
     @Override
@@ -68,11 +67,6 @@ public class LruMemCacheStorage<Param, Data> extends StdStorage<Param, Data> {
         return mapStorage.getMap().size();
     }
 
-    public LruMemCacheStorage<Param, Data> withDataCopy(Type type) {
-        mapStorage = new StringImpl<>(new LruMap<>(capacity), type);
-        return this;
-    }
-
     // ***********************内部类****************************
 
     public static class Builder<Param, Data> extends StdStorageBuilder<Param, Data> {
@@ -80,15 +74,23 @@ public class LruMemCacheStorage<Param, Data> extends StdStorage<Param, Data> {
          * 设置用于存放数据的队列容量
          */
         protected int capacity = 100;
+        protected boolean weakRef;
 
         public Builder<Param, Data> capacity(int capacity) {
             this.capacity = capacity;
             return this;
         }
 
+        public Builder<Param, Data> weakRef() {
+            weakRef = true;
+            return this;
+        }
+
         @Override
         protected ICacheStorage<Param, Data> onBuild() {
-            return new LruMemCacheStorage<>(pTtl, pTtlErr, capacity);
+            return weakRef ?
+                    new LruMemCacheStorage<>(pTtl, pTtlErr, new WeakRefImpl<>(new LruMap<>(capacity))) :
+                    new LruMemCacheStorage<>(pTtl, pTtlErr, capacity);
         }
 
         @Override
@@ -118,10 +120,50 @@ public class LruMemCacheStorage<Param, Data> extends StdStorage<Param, Data> {
 
         void onSave(String key, CacheEntity<Data> entity);
 
-        default <T> Optional<T> load(LruMap<String, WeakReference<T>> lruMap, String key) {
-            WeakReference<T> reference = lruMap.get(key);
+    }
+
+    private static class SimpleImpl<Data> implements MapStorage<Data> {
+
+        private final LruMap<String, CacheEntity<Data>> lruMap;
+
+        public SimpleImpl(LruMap<String, CacheEntity<Data>> lruMap) {
+            this.lruMap = lruMap;
+        }
+
+        @Override
+        public Map<String, ?> getMap() {
+            return lruMap;
+        }
+
+        @Override
+        public Optional<CacheEntity<Data>> onLoad(String key) {
+            return Optional.ofNullable(lruMap.get(key));
+        }
+
+        @Override
+        public void onSave(String key, CacheEntity<Data> entity) {
+            lruMap.put(key, entity);
+        }
+    }
+
+    private static class WeakRefImpl<Data> implements MapStorage<Data> {
+
+        private final LruMap<String, WeakReference<CacheEntity<Data>>> lruMap;
+
+        public WeakRefImpl(LruMap<String, WeakReference<CacheEntity<Data>>> lruMap) {
+            this.lruMap = lruMap;
+        }
+
+        @Override
+        public Map<String, ?> getMap() {
+            return lruMap;
+        }
+
+        @Override
+        public Optional<CacheEntity<Data>> onLoad(String key) {
+            WeakReference<CacheEntity<Data>> reference = lruMap.get(key);
             if (null != reference) {
-                T data;
+                CacheEntity<Data> data;
                 // 找到具体的数据，返回
                 if (null != (data = reference.get())) {
                     return Optional.of(data);
@@ -133,79 +175,9 @@ public class LruMemCacheStorage<Param, Data> extends StdStorage<Param, Data> {
             return Optional.empty();
         }
 
-        default <T> void save(LruMap<String, WeakReference<T>> lruMap, String key, T value) {
-            lruMap.put(key, new WeakReference<>(value));
-        }
-    }
-
-    private static class SimpleImpl<Data> implements MapStorage<Data> {
-
-        private final LruMap<String, WeakReference<CacheEntity<Data>>> lruMap;
-
-        public SimpleImpl(LruMap<String, WeakReference<CacheEntity<Data>>> lruMap) {
-            this.lruMap = lruMap;
-        }
-
-        @Override
-        public Map<String, ?> getMap() {
-            return lruMap;
-        }
-
-        @Override
-        public Optional<CacheEntity<Data>> onLoad(String key) {
-            return load(lruMap, key);
-        }
-
         @Override
         public void onSave(String key, CacheEntity<Data> entity) {
-            save(lruMap, key, entity);
-        }
-    }
-
-    private static class StringImpl<Data> implements MapStorage<Data> {
-
-        private final LruMap<String, WeakReference<Holder>> lruMap;
-        private final Type type;
-
-        public StringImpl(LruMap<String, WeakReference<Holder>> lruMap, Type type) {
-            this.lruMap = lruMap;
-            this.type = type;
-        }
-
-        @Override
-        public Map<String, ?> getMap() {
-            return lruMap;
-        }
-
-        @Override
-        public Optional<CacheEntity<Data>> onLoad(String key) {
-            Optional<Holder> holderOpt = load(lruMap, key);
-            if (!holderOpt.isPresent()) {
-                return Optional.empty();
-            }
-            Holder holder = holderOpt.get();
-            DataCore<Data> core;
-            try {
-                core = DataCore.fromJson(holder.DataCoreJson, type);
-            } catch (ClassNotFoundException e) {
-                throw new BdCacheException("反序列化数据对象异常:" + e.getMessage());
-            }
-            return Optional.of(new CacheEntity<>(core, holder.pExpireAt));
-        }
-
-        @Override
-        public void onSave(String key, CacheEntity<Data> entity) {
-            save(lruMap, key, new Holder(DataCore.toJson(entity.dataCore), entity.pExpireAt));
-        }
-    }
-
-    private static class Holder {
-        final String DataCoreJson;
-        final long pExpireAt;
-
-        public Holder(String dataCoreJson, long pExpireAt) {
-            DataCoreJson = dataCoreJson;
-            this.pExpireAt = pExpireAt;
+            lruMap.put(key, new WeakReference<>(entity));
         }
     }
 

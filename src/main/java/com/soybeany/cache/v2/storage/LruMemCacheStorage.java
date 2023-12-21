@@ -5,10 +5,13 @@ import com.soybeany.cache.v2.exception.NoCacheException;
 import com.soybeany.cache.v2.model.CacheEntity;
 import com.soybeany.cache.v2.model.DataContext;
 
+import java.lang.ref.Reference;
+import java.lang.ref.SoftReference;
 import java.lang.ref.WeakReference;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
 
 /**
  * @author Soybeany
@@ -81,16 +84,16 @@ public class LruMemCacheStorage<Param, Data> extends StdStorage<Param, Data> {
             return this;
         }
 
-        public Builder<Param, Data> weakRef() {
-            weakRef = true;
+        public Builder<Param, Data> weakRef(boolean flag) {
+            weakRef = flag;
             return this;
         }
 
         @Override
         protected ICacheStorage<Param, Data> onBuild() {
             return weakRef ?
-                    new LruMemCacheStorage<>(pTtl, pTtlErr, new WeakRefImpl<>(new LruMap<>(capacity))) :
-                    new LruMemCacheStorage<>(pTtl, pTtlErr, capacity);
+                    new LruMemCacheStorage<>(pTtl, pTtlErr, new RefImpl<>(capacity, WeakReference::new)) :
+                    new LruMemCacheStorage<>(pTtl, pTtlErr, new RefImpl<>(capacity, SoftReference::new));
         }
 
         @Override
@@ -146,12 +149,14 @@ public class LruMemCacheStorage<Param, Data> extends StdStorage<Param, Data> {
         }
     }
 
-    private static class WeakRefImpl<Data> implements MapStorage<Data> {
+    private static class RefImpl<Data> implements MapStorage<Data> {
 
-        private final LruMap<String, WeakReference<CacheEntity<Data>>> lruMap;
+        private final LruMap<String, Reference<CacheEntity<Data>>> lruMap;
+        private final Function<CacheEntity<Data>, Reference<CacheEntity<Data>>> parser;
 
-        public WeakRefImpl(LruMap<String, WeakReference<CacheEntity<Data>>> lruMap) {
-            this.lruMap = lruMap;
+        public RefImpl(int capacity, Function<CacheEntity<Data>, Reference<CacheEntity<Data>>> parser) {
+            this.lruMap = new LruMap<>(capacity);
+            this.parser = parser;
         }
 
         @Override
@@ -161,7 +166,7 @@ public class LruMemCacheStorage<Param, Data> extends StdStorage<Param, Data> {
 
         @Override
         public Optional<CacheEntity<Data>> onLoad(String key) {
-            WeakReference<CacheEntity<Data>> reference = lruMap.get(key);
+            Reference<CacheEntity<Data>> reference = lruMap.get(key);
             if (null != reference) {
                 CacheEntity<Data> data;
                 // 找到具体的数据，返回
@@ -177,7 +182,7 @@ public class LruMemCacheStorage<Param, Data> extends StdStorage<Param, Data> {
 
         @Override
         public void onSave(String key, CacheEntity<Data> entity) {
-            lruMap.put(key, new WeakReference<>(entity));
+            lruMap.put(key, parser.apply(entity));
         }
     }
 

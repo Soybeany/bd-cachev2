@@ -16,7 +16,7 @@ public class WeakRefDMTest {
 
     private final IDatasource<String, Data> datasource = key -> new Data(key, 123);
 
-    private final ICacheStorage<String, Data> storage = new LruMemCacheStorage.Builder<String, Data>().weakRef().build();
+    private final ICacheStorage<String, Data> storage = new LruMemCacheStorage.Builder<String, Data>().weakRef(true).build();
 
     private final DataManager<String, Data> dataManager = DataManager.Builder
             .get("弱引用测试", datasource)

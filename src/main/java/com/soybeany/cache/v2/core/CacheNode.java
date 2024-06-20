@@ -2,6 +2,7 @@ package com.soybeany.cache.v2.core;
 
 import com.soybeany.cache.v2.contract.ICacheStorage;
 import com.soybeany.cache.v2.contract.IDatasource;
+import com.soybeany.cache.v2.exception.LockException;
 import com.soybeany.cache.v2.exception.NoCacheException;
 import com.soybeany.cache.v2.exception.NoDataSourceException;
 import com.soybeany.cache.v2.model.DataContext;
@@ -9,6 +10,7 @@ import com.soybeany.cache.v2.model.DataCore;
 import com.soybeany.cache.v2.model.DataPack;
 
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -23,6 +25,7 @@ class CacheNode<Param, Data> {
     private final Map<String, Lock> mKeyMap = new WeakHashMap<>();
     private final ICacheStorage<Param, Data> curStorage;
     private final int priority;
+    private final long lockWaitTime;
     private CacheNode<Param, Data> nextNode;
 
     public static <Param, Data> DataPack<Data> getDataDirectly(Object invoker, Param param, IDatasource<Param, Data> datasource) {
@@ -39,9 +42,10 @@ class CacheNode<Param, Data> {
         }
     }
 
-    public CacheNode(ICacheStorage<Param, Data> curStorage, int priority) {
+    public CacheNode(ICacheStorage<Param, Data> curStorage, int priority, long lockWaitTime) {
         this.curStorage = curStorage;
         this.priority = priority;
+        this.lockWaitTime = lockWaitTime;
     }
 
     public ICacheStorage<Param, Data> getCurStorage() {
@@ -114,7 +118,13 @@ class CacheNode<Param, Data> {
     private DataPack<Data> doGetDataPackAndAutoCache(DataContext<Param> context, final IDatasource<Param, Data> datasource) {
         // 加锁，避免并发时数据重复获取
         Lock lock = getLock(context.param.paramKey);
-        lock.lock();
+        try {
+            if (!lock.tryLock(lockWaitTime, TimeUnit.SECONDS)) {
+                return new DataPack<>(DataCore.fromException(new LockException("超时")), curStorage, 0);
+            }
+        } catch (InterruptedException e) {
+            return new DataPack<>(DataCore.fromException(new LockException("中断")), curStorage, 0);
+        }
         try {
             // 再查一次本节点，避免由于并发多次调用下一节点
             return getDataFromCurNode(context, () -> getDataFromNextNode(context, datasource));

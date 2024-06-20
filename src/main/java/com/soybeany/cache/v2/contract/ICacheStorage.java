@@ -21,6 +21,11 @@ public interface ICacheStorage<Param, Data> {
      */
     int ORDER_DEFAULT = 10;
 
+    /**
+     * 默认的锁等待时间
+     */
+    long LOCK_WAIT_TIME_DEFAULT = 30;
+
     // ********************配置类********************
 
     /**
@@ -30,6 +35,13 @@ public interface ICacheStorage<Param, Data> {
      */
     default int priority() {
         return ORDER_DEFAULT;
+    }
+
+    /**
+     * 指定锁等待时间
+     */
+    default long lockWaitTime() {
+        return LOCK_WAIT_TIME_DEFAULT;
     }
 
     /**

@@ -40,7 +40,7 @@ public class DataManager<Param, Data> {
         return Collections.unmodifiableMap(MANAGERS);
     }
 
-    public DataManager(DataContext.Core<Param, Data> contextCore,
+    private DataManager(DataContext.Core<Param, Data> contextCore,
                        IDatasource<Param, Data> defaultDatasource,
                        IKeyConverter<Param> paramDescConverter,
                        IKeyConverter<Param> paramKeyConverter,
@@ -329,7 +329,7 @@ public class DataManager<Param, Data> {
                 throw new BdCacheException("storage不能为null");
             }
             // 添加到存储器列表
-            mNodes.add(new CacheNode<>(storage, storage.priority() - mNodes.size()));
+            mNodes.add(new CacheNode<>(storage, storage.priority() - mNodes.size(), storage.lockWaitTime()));
             return this;
         }
 

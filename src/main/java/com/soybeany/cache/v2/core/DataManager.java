@@ -9,10 +9,8 @@ import com.soybeany.cache.v2.exception.BdCacheException;
 import com.soybeany.cache.v2.model.DataContext;
 import com.soybeany.cache.v2.model.DataCore;
 import com.soybeany.cache.v2.model.DataPack;
-import com.soybeany.util.file.BdFileUtils;
 
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * 数据管理器，提供数据自动缓存/读取的核心功能
@@ -22,8 +20,6 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 @SuppressWarnings({"UnusedReturnValue", "unused"})
 public class DataManager<Param, Data> {
-
-    private static final Map<String, DataManager<?, ?>> MANAGERS = new ConcurrentHashMap<>();
 
     private final DataContext.Core<Param, Data> contextCore;
     private final IDatasource<Param, Data> defaultDatasource;
@@ -35,10 +31,6 @@ public class DataManager<Param, Data> {
     private final boolean enableRenewExpiredCache;
 
     // ***********************管理****************************
-
-    public static Map<String, DataManager<?, ?>> getAllManagers() {
-        return Collections.unmodifiableMap(MANAGERS);
-    }
 
     private DataManager(DataContext.Core<Param, Data> contextCore,
                        IDatasource<Param, Data> defaultDatasource,
@@ -270,11 +262,6 @@ public class DataManager<Param, Data> {
          */
         private boolean enableRenewExpiredCache;
 
-        /**
-         * 是否允许纳入全局管控
-         */
-        private boolean enableGlobalControl = true;
-
         public static <Data> Builder<String, Data> get(String dataDesc, IDatasource<String, Data> datasource) {
             return new Builder<>(dataDesc, datasource, new IKeyConverter.Std());
         }
@@ -311,11 +298,6 @@ public class DataManager<Param, Data> {
             return this;
         }
 
-        public Builder<Param, Data> enableGlobalControl(boolean flag) {
-            this.enableGlobalControl = flag;
-            return this;
-        }
-
         // ********************设置********************
 
         /**
@@ -349,7 +331,7 @@ public class DataManager<Param, Data> {
             // 创建调用链
             CacheNode<Param, Data> firstNode = buildChain();
             // 创建管理器实例
-            DataManager<Param, Data> manager = new DataManager<>(
+            return new DataManager<>(
                     new DataContext.Core<>(dataDesc, storageId, logger),
                     defaultDatasource,
                     paramDescConverter,
@@ -358,11 +340,6 @@ public class DataManager<Param, Data> {
                     Collections.unmodifiableList(storages),
                     enableRenewExpiredCache
             );
-            // 保存并返回实例信息
-            if (enableGlobalControl) {
-                MANAGERS.put(BdFileUtils.getUuid(), manager);
-            }
-            return manager;
         }
 
         // ********************内部方法********************

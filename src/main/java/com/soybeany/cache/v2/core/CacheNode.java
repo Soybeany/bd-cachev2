@@ -56,6 +56,10 @@ class CacheNode<Param, Data> {
         return priority;
     }
 
+    public CacheNode<Param, Data> getNextNode() {
+        return nextNode;
+    }
+
     public void setNextNode(CacheNode<Param, Data> nextNode) {
         this.nextNode = nextNode;
     }

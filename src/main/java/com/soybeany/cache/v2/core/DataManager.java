@@ -33,12 +33,12 @@ public class DataManager<Param, Data> {
     // ***********************管理****************************
 
     private DataManager(DataContext.Core<Param, Data> contextCore,
-                       IDatasource<Param, Data> defaultDatasource,
-                       IKeyConverter<Param> paramDescConverter,
-                       IKeyConverter<Param> paramKeyConverter,
-                       CacheNode<Param, Data> firstNode,
-                       List<ICacheStorage<Param, Data>> storages,
-                       boolean enableRenewExpiredCache) {
+                        IDatasource<Param, Data> defaultDatasource,
+                        IKeyConverter<Param> paramDescConverter,
+                        IKeyConverter<Param> paramKeyConverter,
+                        CacheNode<Param, Data> firstNode,
+                        List<ICacheStorage<Param, Data>> storages,
+                        boolean enableRenewExpiredCache) {
         this.contextCore = contextCore;
         this.defaultDatasource = defaultDatasource;
         this.paramDescConverter = paramDescConverter;
@@ -208,7 +208,12 @@ public class DataManager<Param, Data> {
         // 缓存数据
         DataContext<Param> context = getNewDataContext(param);
         DataPack<Data> pack = new DataPack<>(dataCore, this, Integer.MAX_VALUE);
-        firstNode.cacheData(context, pack);
+        // 得到最后一个节点
+        CacheNode<Param, Data> lastNode = firstNode;
+        while (null != lastNode.getNextNode()) {
+            lastNode = lastNode.getNextNode();
+        }
+        lastNode.cacheData(context, pack);
         // 记录日志
         if (null != contextCore.logger) {
             contextCore.logger.onCacheData(context, pack);
@@ -219,12 +224,17 @@ public class DataManager<Param, Data> {
         if (null == firstNode) {
             return;
         }
-        // 缓存数据
+        // 生成缓存数据
         Map<DataContext.Param<Param>, DataPack<Data>> dataPacks = new HashMap<>();
         dataCores.forEach((param, dataCore) ->
                 dataPacks.put(getNewDataContextParam(param), new DataPack<>(dataCore, this, Integer.MAX_VALUE))
         );
-        firstNode.batchCacheData(contextCore, dataPacks);
+        // 得到最后一个节点
+        CacheNode<Param, Data> lastNode = firstNode;
+        while (null != lastNode.getNextNode()) {
+            lastNode = lastNode.getNextNode();
+        }
+        lastNode.batchCacheData(contextCore, dataPacks);
         // 记录日志
         if (null != contextCore.logger) {
             contextCore.logger.onBatchCacheData(contextCore, dataPacks);

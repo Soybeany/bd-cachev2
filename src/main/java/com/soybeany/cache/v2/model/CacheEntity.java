@@ -16,14 +16,14 @@ public class CacheEntity<Data> {
      */
     public final long pExpireAt;
 
-    public static <Data> CacheEntity<Data> fromDataPack(DataPack<Data> dataPack, long curTimestamp, int pTtlMaxNorm, int pTtlMaxErr) {
-        int pTtlMax = dataPack.dataCore.norm ? pTtlMaxNorm : pTtlMaxErr;
+    public static <Data> CacheEntity<Data> fromDataPack(DataPack<Data> dataPack, long curTimestamp, long pTtlMaxNorm, long pTtlMaxErr) {
+        long pTtlMax = dataPack.dataCore.norm ? pTtlMaxNorm : pTtlMaxErr;
         long pTtl = Math.min(dataPack.pTtl, pTtlMax);
         return new CacheEntity<>(dataPack.dataCore, curTimestamp + pTtl);
     }
 
     public static <Data> DataPack<Data> toDataPack(CacheEntity<Data> entity, Object provider, long curTimestamp) {
-        return new DataPack<>(entity.dataCore, provider, (int) (entity.pExpireAt - curTimestamp));
+        return new DataPack<>(entity.dataCore, provider, entity.pExpireAt - curTimestamp);
     }
 
     public CacheEntity(DataCore<Data> dataCore, long pExpireAt) {

@@ -20,8 +20,8 @@ public interface IDatasource<Param, Data> {
      *
      * @return 指定数据的超时，单位为millis
      */
-    default int onSetupExpiry(Data data) {
-        return Integer.MAX_VALUE;
+    default long onSetupExpiry(Data data) {
+        return Long.MAX_VALUE;
     }
 
     /**
@@ -29,7 +29,7 @@ public interface IDatasource<Param, Data> {
      *
      * @return 指定异常的超时，单位为millis
      */
-    default int onSetupExpiry(Exception e) {
-        return Integer.MAX_VALUE;
+    default long onSetupExpiry(Exception e) {
+        return Long.MAX_VALUE;
     }
 }

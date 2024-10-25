@@ -38,7 +38,7 @@ public class LruMemTimerCacheStorage<Param, Data> extends LruMemCacheStorage<Par
         }
     }
 
-    public LruMemTimerCacheStorage(int pTtl, int pTtlErr, int capacity) {
+    public LruMemTimerCacheStorage(long pTtl, long pTtlErr, int capacity) {
         super(pTtl, pTtlErr, capacity);
     }
 

@@ -14,11 +14,11 @@ import com.soybeany.cache.v2.model.DataPack;
 public abstract class StdStorage<Param, Data> implements ICacheStorage<Param, Data> {
 
     private final IKeyConverter<String> keyConverter = onSetupKeyConverter();
-    protected final int pTtl;
-    protected final int pTtlErr;
+    protected final long pTtl;
+    protected final long pTtlErr;
     private boolean enableRenewExpiredCache;
 
-    public StdStorage(int pTtl, int pTtlErr) {
+    public StdStorage(long pTtl, long pTtlErr) {
         this.pTtl = pTtl;
         this.pTtlErr = pTtlErr;
     }

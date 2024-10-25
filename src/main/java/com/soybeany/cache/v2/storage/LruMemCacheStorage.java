@@ -21,11 +21,11 @@ public class LruMemCacheStorage<Param, Data> extends StdStorage<Param, Data> {
 
     private final MapStorage<Data> mapStorage;
 
-    public LruMemCacheStorage(int pTtl, int pTtlErr, int capacity) {
+    public LruMemCacheStorage(long pTtl, long pTtlErr, int capacity) {
         this(pTtl, pTtlErr, new SimpleImpl<>(new LruMap<>(capacity)));
     }
 
-    private LruMemCacheStorage(int pTtl, int pTtlErr, MapStorage<Data> storage) {
+    private LruMemCacheStorage(long pTtl, long pTtlErr, MapStorage<Data> storage) {
         super(pTtl, pTtlErr);
         mapStorage = storage;
     }

@@ -19,9 +19,9 @@ public class DataPack<Data> {
     /**
      * 该数据的生存时间[Time To Live](时间段)
      */
-    public final int pTtl;
+    public final long pTtl;
 
-    public DataPack(DataCore<Data> dataCore, Object provider, int pTtl) {
+    public DataPack(DataCore<Data> dataCore, Object provider, long pTtl) {
         this.dataCore = dataCore;
         this.provider = provider;
         this.pTtl = Math.max(pTtl, 0);

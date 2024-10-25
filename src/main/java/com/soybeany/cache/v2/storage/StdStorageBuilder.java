@@ -21,12 +21,12 @@ public abstract class StdStorageBuilder<Param, Data> {
     /**
      * 正常数据的生存时间，用于一般场景(单位：毫秒)，与{@link #ttl}同时设置时，以此为准
      */
-    protected int pTtl;
+    protected long pTtl;
 
     /**
      * 异常的生存时间，用于防缓存穿透等场景(单位：毫秒)，与{@link #ttlErr}同时设置时，以此为准
      */
-    protected int pTtlErr;
+    protected long pTtlErr;
 
     public ICacheStorage<Param, Data> build() {
         // 预处理时间
@@ -45,12 +45,12 @@ public abstract class StdStorageBuilder<Param, Data> {
         return this;
     }
 
-    public StdStorageBuilder<Param, Data> pTtl(int pTtl) {
+    public StdStorageBuilder<Param, Data> pTtl(long pTtl) {
         this.pTtl = pTtl;
         return this;
     }
 
-    public StdStorageBuilder<Param, Data> pTtlErr(int pTtlErr) {
+    public StdStorageBuilder<Param, Data> pTtlErr(long pTtlErr) {
         this.pTtlErr = pTtlErr;
         return this;
     }
@@ -64,10 +64,10 @@ public abstract class StdStorageBuilder<Param, Data> {
     private void handleTtl() {
         // 整合
         if (pTtl == 0) {
-            pTtl = ttl * 1000;
+            pTtl = ttl * 1000L;
         }
         if (pTtlErr == 0) {
-            pTtlErr = ttlErr * 1000;
+            pTtlErr = ttlErr * 1000L;
         }
         // 微调
         pTtl = Math.max(pTtl, 1);

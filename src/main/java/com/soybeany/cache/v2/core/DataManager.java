@@ -185,7 +185,7 @@ public class DataManager<Param, Data> {
         if (null == firstNode) {
             return;
         }
-        firstNode.clearCache(contextCore.storageId, storageIndexes);
+        firstNode.clearCache(contextCore, storageIndexes);
         // 记录日志
         if (null != contextCore.logger) {
             contextCore.logger.onClearCache(contextCore.dataDesc, storageIndexes);
@@ -346,7 +346,7 @@ public class DataManager<Param, Data> {
         public DataManager<Param, Data> build() {
             // 初始化存储
             List<ICacheStorage<Param, Data>> storages = new ArrayList<>();
-            String storageId = initStorages(storages);
+            DataContext.Core<Param, Data> core = initContextCore(storages);
             // 节点排序
             mNodes.sort(new ServiceComparator());
             // 为末端节点的存储设置缓存重用
@@ -357,7 +357,7 @@ public class DataManager<Param, Data> {
             CacheNode<Param, Data> firstNode = buildChain();
             // 创建管理器实例
             return new DataManager<>(
-                    new DataContext.Core<>(dataDesc, storageId, logger),
+                    core,
                     defaultDatasource,
                     paramDescConverter,
                     paramKeyConverter,
@@ -369,14 +369,15 @@ public class DataManager<Param, Data> {
 
         // ********************内部方法********************
 
-        private String initStorages(List<ICacheStorage<Param, Data>> storages) {
+        private DataContext.Core<Param, Data> initContextCore(List<ICacheStorage<Param, Data>> storages) {
             String storageId = Optional.ofNullable(this.storageId).orElse(dataDesc);
+            DataContext.Core<Param, Data> core = new DataContext.Core<>(dataDesc, storageId, logger);
             for (CacheNode<Param, Data> node : mNodes) {
                 ICacheStorage<Param, Data> storage = node.getCurStorage();
-                storage.onInit(storageId);
+                storage.onInit(core);
                 storages.add(storage);
             }
-            return storageId;
+            return core;
         }
 
         private CacheNode<Param, Data> buildChain() {

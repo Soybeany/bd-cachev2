@@ -91,8 +91,8 @@ class CacheNode<Param, Data> {
         traverse(node -> node.curStorage.onRemoveCache(context), storageIndexes);
     }
 
-    public void clearCache(String storageId, int... storageIndexes) {
-        traverse(node -> node.curStorage.onClearCache(storageId), storageIndexes);
+    public void clearCache(DataContext.Core<Param, Data> contextCore, int... storageIndexes) {
+        traverse(node -> node.curStorage.onClearCache(contextCore), storageIndexes);
     }
 
     // ****************************************内部方法****************************************

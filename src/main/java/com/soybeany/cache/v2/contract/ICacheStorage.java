@@ -61,10 +61,10 @@ public interface ICacheStorage<Param, Data> {
     /**
      * 初始化时的回调
      *
-     * @param storageId 数据存储的唯一id
+     * @param contextCore 上下文核心
      */
     @SuppressWarnings("unused")
-    default void onInit(String storageId) {
+    default void onInit(DataContext.Core<Param, Data> contextCore) {
         // 子类实现
     }
 
@@ -117,7 +117,7 @@ public interface ICacheStorage<Param, Data> {
     /**
      * 清除全部缓存
      */
-    void onClearCache(String storageId);
+    void onClearCache(DataContext.Core<Param, Data> contextCore);
 
     // ***********************主动调用类****************************
 
@@ -131,6 +131,6 @@ public interface ICacheStorage<Param, Data> {
      *
      * @return 数目
      */
-    int cachedDataCount(String storageId);
+    int cachedDataCount(DataContext.Core<Param, Data> contextCore);
 
 }

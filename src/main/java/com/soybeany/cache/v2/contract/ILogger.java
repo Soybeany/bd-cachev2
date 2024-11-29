@@ -31,6 +31,11 @@ public interface ILogger<Param, Data> {
     /**
      * 移除缓存时的回调
      */
+    void onInvalidCache(DataContext<Param> context, int... storageIndexes);
+
+    /**
+     * 移除缓存时的回调
+     */
     void onRemoveCache(DataContext<Param> context, int... storageIndexes);
 
     /**

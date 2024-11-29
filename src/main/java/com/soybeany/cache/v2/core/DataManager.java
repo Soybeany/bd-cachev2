@@ -149,6 +149,21 @@ public class DataManager<Param, Data> {
     }
 
     /**
+     * 失效指定存储器中指定key的缓存
+     */
+    public void invalidCache(Param param, int... storageIndexes) {
+        if (null == firstNode) {
+            return;
+        }
+        DataContext<Param> context = getNewDataContext(param);
+        firstNode.invalidCache(context, storageIndexes);
+        // 记录日志
+        if (null != contextCore.logger) {
+            contextCore.logger.onInvalidCache(context, storageIndexes);
+        }
+    }
+
+    /**
      * 移除指定存储器中指定key的缓存
      */
     public void removeCache(Param param, int... storageIndexes) {

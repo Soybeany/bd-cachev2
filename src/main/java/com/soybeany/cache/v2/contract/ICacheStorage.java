@@ -63,6 +63,7 @@ public interface ICacheStorage<Param, Data> {
      *
      * @param storageId 数据存储的唯一id
      */
+    @SuppressWarnings("unused")
     default void onInit(String storageId) {
         // 子类实现
     }
@@ -98,6 +99,13 @@ public interface ICacheStorage<Param, Data> {
         dataPacks.forEach((k, v) -> result.put(k, onCacheData(new DataContext<>(contextCore, k), v)));
         return result;
     }
+
+    /**
+     * 失效指定的缓存
+     *
+     * @param context 上下文，含有当前环境的一些信息
+     */
+    void onInvalidCache(DataContext<Param> context);
 
     /**
      * 移除指定的缓存

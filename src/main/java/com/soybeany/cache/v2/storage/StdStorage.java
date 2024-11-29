@@ -71,6 +71,16 @@ public abstract class StdStorage<Param, Data> implements ICacheStorage<Param, Da
     }
 
     @Override
+    public void onInvalidCache(DataContext<Param> context) {
+        String key = getKey(context);
+        try {
+            CacheEntity<Data> cacheEntity = onLoadCacheEntity(context, key);
+            onSaveCacheEntity(context, key, new CacheEntity<>(cacheEntity.dataCore, 0));
+        } catch (NoCacheException ignore) {
+        }
+    }
+
+    @Override
     public void onRemoveCache(DataContext<Param> context) {
         onRemoveCacheEntity(context, getKey(context));
     }

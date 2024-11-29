@@ -83,6 +83,10 @@ class CacheNode<Param, Data> {
         traverseR((node, prePacks) -> node.curStorage.onBatchCacheData(contextCore, prePacks), dataPacks);
     }
 
+    public void invalidCache(DataContext<Param> context, int... storageIndexes) {
+        traverse(node -> node.curStorage.onInvalidCache(context), storageIndexes);
+    }
+
     public void removeCache(DataContext<Param> context, int... storageIndexes) {
         traverse(node -> node.curStorage.onRemoveCache(context), storageIndexes);
     }

@@ -67,6 +67,11 @@ public class StdLogger<Param, Data> implements ILogger<Param, Data> {
     }
 
     @Override
+    public void onInvalidCache(DataContext<Param> context, int... storageIndexes) {
+        mWriter.onWriteInfo("“" + getDataDesc(context.core) + "”失效了" + getIndexMsg(storageIndexes) + "中“" + getParamDesc(context.param) + "”的缓存");
+    }
+
+    @Override
     public void onRemoveCache(DataContext<Param> context, int... storageIndexes) {
         mWriter.onWriteInfo("“" + getDataDesc(context.core) + "”移除了" + getIndexMsg(storageIndexes) + "中“" + getParamDesc(context.param) + "”的缓存");
     }

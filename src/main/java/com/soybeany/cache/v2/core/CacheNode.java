@@ -87,6 +87,10 @@ class CacheNode<Param, Data> {
         traverse(node -> node.curStorage.onInvalidCache(context), storageIndexes);
     }
 
+    public void invalidAllCache(DataContext.Core<Param, Data> contextCore, int... storageIndexes) {
+        traverse(node -> node.curStorage.onInvalidAllCache(contextCore), storageIndexes);
+    }
+
     public void removeCache(DataContext<Param> context, int... storageIndexes) {
         traverse(node -> node.curStorage.onRemoveCache(context), storageIndexes);
     }

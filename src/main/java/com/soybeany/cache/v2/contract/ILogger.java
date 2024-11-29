@@ -29,9 +29,14 @@ public interface ILogger<Param, Data> {
     void onBatchCacheData(DataContext.Core<Param, Data> contextCore, Map<DataContext.Param<Param>, DataPack<Data>> dataPacks);
 
     /**
-     * 移除缓存时的回调
+     * 失效缓存时的回调
      */
     void onInvalidCache(DataContext<Param> context, int... storageIndexes);
+
+    /**
+     * 失效全部缓存时的回调
+     */
+    void onInvalidAllCache(DataContext.Core<Param, Data> core, int... storageIndexes);
 
     /**
      * 移除缓存时的回调
@@ -46,6 +51,6 @@ public interface ILogger<Param, Data> {
     /**
      * 清除缓存时的回调
      */
-    void onClearCache(String dataDesc, int... storageIndexes);
+    void onClearCache(DataContext.Core<Param, Data> core, int... storageIndexes);
 
 }

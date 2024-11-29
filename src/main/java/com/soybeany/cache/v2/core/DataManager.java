@@ -164,6 +164,20 @@ public class DataManager<Param, Data> {
     }
 
     /**
+     * 失效指定存储器中全部缓存
+     */
+    public void invalidAllCache(int... storageIndexes) {
+        if (null == firstNode) {
+            return;
+        }
+        firstNode.invalidAllCache(contextCore, storageIndexes);
+        // 记录日志
+        if (null != contextCore.logger) {
+            contextCore.logger.onInvalidAllCache(contextCore, storageIndexes);
+        }
+    }
+
+    /**
      * 移除指定存储器中指定key的缓存
      */
     public void removeCache(Param param, int... storageIndexes) {
@@ -188,7 +202,7 @@ public class DataManager<Param, Data> {
         firstNode.clearCache(contextCore, storageIndexes);
         // 记录日志
         if (null != contextCore.logger) {
-            contextCore.logger.onClearCache(contextCore.dataDesc, storageIndexes);
+            contextCore.logger.onClearCache(contextCore, storageIndexes);
         }
     }
 

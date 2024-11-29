@@ -8,9 +8,7 @@ import com.soybeany.cache.v2.model.DataContext;
 import java.lang.ref.Reference;
 import java.lang.ref.SoftReference;
 import java.lang.ref.WeakReference;
-import java.util.LinkedHashMap;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.function.Function;
 
 /**
@@ -36,6 +34,22 @@ public class LruMemCacheStorage<Param, Data> extends StdStorage<Param, Data> {
     }
 
     @Override
+    public synchronized void onInvalidAllCache(DataContext.Core<Param, Data> contextCore) {
+        Set<String> keys = new HashSet<>(mapStorage.getMap().keySet());
+        keys.forEach(key -> mapStorage.onLoad(key).ifPresent(entity -> mapStorage.onSave(key, new CacheEntity<>(entity.dataCore, 0))));
+    }
+
+    @Override
+    public synchronized void onClearCache(DataContext.Core<Param, Data> contextCore) {
+        mapStorage.getMap().clear();
+    }
+
+    @Override
+    public int cachedDataCount(DataContext.Core<Param, Data> contextCore) {
+        return mapStorage.getMap().size();
+    }
+
+    @Override
     protected synchronized CacheEntity<Data> onLoadCacheEntity(DataContext<Param> context, String key) throws NoCacheException {
         Optional<CacheEntity<Data>> entityOpt = mapStorage.onLoad(key);
         if (!entityOpt.isPresent()) {
@@ -58,16 +72,6 @@ public class LruMemCacheStorage<Param, Data> extends StdStorage<Param, Data> {
     @Override
     protected long onGetCurTimestamp() {
         return System.currentTimeMillis();
-    }
-
-    @Override
-    public synchronized void onClearCache(DataContext.Core<Param, Data> contextCore) {
-        mapStorage.getMap().clear();
-    }
-
-    @Override
-    public int cachedDataCount(DataContext.Core<Param, Data> contextCore) {
-        return mapStorage.getMap().size();
     }
 
     // ***********************内部类****************************

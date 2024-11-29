@@ -72,6 +72,11 @@ public class StdLogger<Param, Data> implements ILogger<Param, Data> {
     }
 
     @Override
+    public void onInvalidAllCache(DataContext.Core<Param, Data> core, int... storageIndexes) {
+        mWriter.onWriteInfo("“" + core.dataDesc + "”失效了" + getIndexMsg(storageIndexes) + "的缓存");
+    }
+
+    @Override
     public void onRemoveCache(DataContext<Param> context, int... storageIndexes) {
         mWriter.onWriteInfo("“" + getDataDesc(context.core) + "”移除了" + getIndexMsg(storageIndexes) + "中“" + getParamDesc(context.param) + "”的缓存");
     }
@@ -82,8 +87,8 @@ public class StdLogger<Param, Data> implements ILogger<Param, Data> {
     }
 
     @Override
-    public void onClearCache(String dataDesc, int... storageIndexes) {
-        mWriter.onWriteInfo("“" + dataDesc + "”清空了" + getIndexMsg(storageIndexes) + "的缓存");
+    public void onClearCache(DataContext.Core<Param, Data> core, int... storageIndexes) {
+        mWriter.onWriteInfo("“" + core.dataDesc + "”清空了" + getIndexMsg(storageIndexes) + "的缓存");
     }
 
     private String getFrom(Object provider) {

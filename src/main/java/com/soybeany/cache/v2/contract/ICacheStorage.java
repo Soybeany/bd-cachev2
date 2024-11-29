@@ -1,6 +1,7 @@
 package com.soybeany.cache.v2.contract;
 
 
+import com.soybeany.cache.v2.exception.BdCacheException;
 import com.soybeany.cache.v2.exception.NoCacheException;
 import com.soybeany.cache.v2.model.DataContext;
 import com.soybeany.cache.v2.model.DataPack;
@@ -106,6 +107,13 @@ public interface ICacheStorage<Param, Data> {
      * @param context 上下文，含有当前环境的一些信息
      */
     void onInvalidCache(DataContext<Param> context);
+
+    /**
+     * 失效全部缓存
+     */
+    default void onInvalidAllCache(DataContext.Core<Param, Data> contextCore) {
+        throw new BdCacheException("不支持此功能");
+    }
 
     /**
      * 移除指定的缓存

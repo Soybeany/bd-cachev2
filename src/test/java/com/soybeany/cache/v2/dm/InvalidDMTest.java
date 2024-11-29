@@ -16,7 +16,7 @@ public class InvalidDMTest {
         throw new RuntimeException("err");
     };
 
-    private final ICacheStorage<String, String> storage = new LruMemCacheStorage.Builder<String, String>().build();
+    private final ICacheStorage<String, String> storage = new LruMemCacheStorage.Builder<String, String>().pTtl(100).build();
 
     private final DataManager<String, String> dataManager = DataManager.Builder
             .get("失效测试", normDatasource)
@@ -26,7 +26,7 @@ public class InvalidDMTest {
             .build();
 
     @Test
-    public void test() {
+    public void test() throws Exception {
         DataPack<String> data;
         String key = "key";
         // 不报错
@@ -42,8 +42,39 @@ public class InvalidDMTest {
         data = dataManager.getDataPack(key, errDatasource);
         assert data.norm() && storage == data.provider;
         // 从数据源获取
-        dataManager.removeCache(key);
+        Thread.sleep(200);
         data = dataManager.getDataPack(key);
+        assert data.norm() && normDatasource == data.provider;
+    }
+
+    @Test
+    public void test2() throws Exception {
+        DataPack<String> data;
+        String key1 = "key1";
+        String key2 = "key2";
+        // 不报错
+        dataManager.invalidAllCache();
+        // 从数据源获取
+        data = dataManager.getDataPack(key1);
+        assert data.norm() && normDatasource == data.provider;
+        data = dataManager.getDataPack(key2);
+        assert data.norm() && normDatasource == data.provider;
+        // 从缓存获取
+        data = dataManager.getDataPack(key1);
+        assert data.norm() && storage == data.provider;
+        data = dataManager.getDataPack(key2);
+        assert data.norm() && storage == data.provider;
+        // 从缓存(续期)获取
+        dataManager.invalidAllCache();
+        data = dataManager.getDataPack(key1, errDatasource);
+        assert data.norm() && storage == data.provider;
+        data = dataManager.getDataPack(key2, errDatasource);
+        assert data.norm() && storage == data.provider;
+        // 从数据源获取
+        Thread.sleep(200);
+        data = dataManager.getDataPack(key1);
+        assert data.norm() && normDatasource == data.provider;
+        data = dataManager.getDataPack(key2);
         assert data.norm() && normDatasource == data.provider;
     }
 

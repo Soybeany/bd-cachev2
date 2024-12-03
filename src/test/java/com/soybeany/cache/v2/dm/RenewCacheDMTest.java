@@ -15,18 +15,7 @@ import org.junit.Test;
  */
 public class RenewCacheDMTest {
 
-    private final IDatasource<String, String> datasource = new IDatasource<String, String>() {
-        private boolean canSuccess = true;
-
-        @Override
-        public String onGetData(String s) {
-            if (canSuccess) {
-                canSuccess = false;
-                return "success";
-            }
-            throw new RuntimeException("数据源异常");
-        }
-    };
+    private final IDatasource<String, String> datasource = s -> "success";
 
     ICacheStorage<String, String> lruStorage = new LruMemCacheStorage.Builder<String, String>().capacity(3).pTtl(200).build();
     ICacheStorage<String, String> dbStorage = new DBSimulationStorage<>(200);
@@ -48,8 +37,8 @@ public class RenewCacheDMTest {
         DataPack<String> dataPack2 = dataManager.getDataPack(null);
         assert dataPack2.provider == lruStorage;
         // 第三次将访问续期后的db
-        Thread.sleep(200);
-        DataPack<String> dataPack3 = dataManager.getDataPack(null);
+        Thread.sleep(250);
+        DataPack<String> dataPack3 = dataManager.getDataPack(null, null);
         assert dataPack3.provider == dbStorage;
         // 第四次将访问LRU
         DataPack<String> dataPack4 = dataManager.getDataPack(null);

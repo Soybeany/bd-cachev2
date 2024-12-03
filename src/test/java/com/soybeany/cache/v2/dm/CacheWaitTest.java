@@ -2,14 +2,14 @@ package com.soybeany.cache.v2.dm;
 
 import com.soybeany.cache.v2.contract.IDatasource;
 import com.soybeany.cache.v2.core.DataManager;
-import com.soybeany.cache.v2.exception.LockException;
+import com.soybeany.cache.v2.exception.CacheWaitException;
 import com.soybeany.cache.v2.log.ConsoleLogger;
 import com.soybeany.cache.v2.model.DataPack;
 import com.soybeany.cache.v2.storage.LruMemCacheStorage;
 import org.junit.Test;
 
 
-public class LockTest {
+public class CacheWaitTest {
 
     private final IDatasource<String, String> datasource = s -> {
         try {
@@ -44,7 +44,7 @@ public class LockTest {
         // 并发限制
         int exceptionCount = 0;
         for (Object exception : exceptions) {
-            if (exception instanceof LockException) {
+            if (exception instanceof CacheWaitException) {
                 exceptionCount++;
             }
         }

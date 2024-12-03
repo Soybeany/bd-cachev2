@@ -2,7 +2,7 @@ package com.soybeany.cache.v2.core;
 
 import com.soybeany.cache.v2.contract.ICacheStorage;
 import com.soybeany.cache.v2.contract.IDatasource;
-import com.soybeany.cache.v2.exception.LockException;
+import com.soybeany.cache.v2.exception.CacheWaitException;
 import com.soybeany.cache.v2.exception.NoCacheException;
 import com.soybeany.cache.v2.exception.NoDataSourceException;
 import com.soybeany.cache.v2.model.DataContext;
@@ -132,10 +132,10 @@ class CacheNode<Param, Data> {
         Lock lock = getLock(context.param.paramKey);
         try {
             if (!lock.tryLock(lockWaitTime, TimeUnit.SECONDS)) {
-                return new DataPack<>(DataCore.fromException(new LockException("超时")), curStorage, 0);
+                return new DataPack<>(DataCore.fromException(new CacheWaitException("超时")), curStorage, 0);
             }
         } catch (InterruptedException e) {
-            return new DataPack<>(DataCore.fromException(new LockException("中断")), curStorage, 0);
+            return new DataPack<>(DataCore.fromException(new CacheWaitException("中断")), curStorage, 0);
         }
         try {
             // 再查一次本节点，避免由于并发多次调用下一节点

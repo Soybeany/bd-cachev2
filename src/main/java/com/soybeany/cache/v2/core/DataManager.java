@@ -236,7 +236,7 @@ public class DataManager<Param, Data> {
         }
         // 缓存数据
         DataContext<Param> context = getNewDataContext(param);
-        DataPack<Data> pack = new DataPack<>(dataCore, this, Integer.MAX_VALUE);
+        DataPack<Data> pack = new DataPack<>(dataCore, this, Long.MAX_VALUE);
         // 得到最后一个节点
         CacheNode<Param, Data> lastNode = firstNode;
         while (null != lastNode.getNextNode()) {
@@ -256,7 +256,7 @@ public class DataManager<Param, Data> {
         // 生成缓存数据
         Map<DataContext.Param<Param>, DataPack<Data>> dataPacks = new HashMap<>();
         dataCores.forEach((param, dataCore) ->
-                dataPacks.put(getNewDataContextParam(param), new DataPack<>(dataCore, this, Integer.MAX_VALUE))
+                dataPacks.put(getNewDataContextParam(param), new DataPack<>(dataCore, this, Long.MAX_VALUE))
         );
         // 得到最后一个节点
         CacheNode<Param, Data> lastNode = firstNode;

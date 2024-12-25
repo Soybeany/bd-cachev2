@@ -31,7 +31,7 @@ class CacheNode<Param, Data> {
     public static <Param, Data> DataPack<Data> getDataDirectly(Object invoker, Param param, IDatasource<Param, Data> datasource) {
         // 没有指定数据源
         if (null == datasource) {
-            return new DataPack<>(DataCore.fromException(new NoDataSourceException()), invoker, Integer.MAX_VALUE);
+            return new DataPack<>(DataCore.fromException(new NoDataSourceException()), invoker, Long.MAX_VALUE);
         }
         // 正常执行
         try {

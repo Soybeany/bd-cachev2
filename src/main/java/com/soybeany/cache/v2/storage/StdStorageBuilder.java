@@ -11,7 +11,7 @@ public abstract class StdStorageBuilder<Param, Data> {
     /**
      * 正常数据的生存时间，用于一般场景(单位：秒)，与{@link #pTtl}同时设置时，以{@link #pTtl}为准
      */
-    private int ttl = Integer.MAX_VALUE / 1000 - 1;
+    private int ttl = Integer.MAX_VALUE - 1;
 
     /**
      * 异常的生存时间，用于防缓存穿透等场景(单位：秒)，与{@link #pTtlErr}同时设置时，以{@link #pTtlErr}为准

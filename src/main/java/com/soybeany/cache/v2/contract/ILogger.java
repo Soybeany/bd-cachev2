@@ -16,7 +16,7 @@ public interface ILogger<Param, Data> {
     /**
      * 获取数据时的回调
      */
-    void onGetData(DataContext<Param> context, DataPack<Data> pack);
+    void onGetData(DataContext<Param> context, DataPack<Data> pack, boolean needStore);
 
     /**
      * 缓存数据时的回调
@@ -52,5 +52,10 @@ public interface ILogger<Param, Data> {
      * 清除缓存时的回调
      */
     void onClearCache(DataContext.Core<Param, Data> core, int... storageIndexes);
+
+    /**
+     * 检测缓存是否存在的回调
+     */
+    void onContainCache(DataContext<Param> context, boolean exist);
 
 }

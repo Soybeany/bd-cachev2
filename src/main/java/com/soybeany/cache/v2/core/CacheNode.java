@@ -67,11 +67,11 @@ class CacheNode<Param, Data> {
     /**
      * 获取数据并自动缓存
      */
-    public DataPack<Data> getDataPackAndAutoCache(DataContext<Param> context, final IDatasource<Param, Data> datasource) {
+    public DataPack<Data> getDataPack(DataContext<Param> context, final IDatasource<Param, Data> datasource, boolean needStore) {
         if (curStorage.needDoubleCheck()) {
-            return getDataFromCurNode(context, () -> doGetDataPackAndAutoCache(context, datasource));
+            return getDataFromCurNode(context, () -> doGetDataPack(context, datasource, needStore));
         } else {
-            return doGetDataPackAndAutoCache(context, datasource);
+            return doGetDataPack(context, datasource, needStore);
         }
     }
 
@@ -127,7 +127,7 @@ class CacheNode<Param, Data> {
         }
     }
 
-    private DataPack<Data> doGetDataPackAndAutoCache(DataContext<Param> context, final IDatasource<Param, Data> datasource) {
+    private DataPack<Data> doGetDataPack(DataContext<Param> context, final IDatasource<Param, Data> datasource, boolean needStore) {
         // 加锁，避免并发时数据重复获取
         Lock lock = getLock(context.param.paramKey);
         try {
@@ -139,7 +139,7 @@ class CacheNode<Param, Data> {
         }
         try {
             // 再查一次本节点，避免由于并发多次调用下一节点
-            return getDataFromCurNode(context, () -> getDataFromNextNode(context, datasource));
+            return getDataFromCurNode(context, () -> getDataFromNextNode(context, datasource, needStore));
         } finally {
             lock.unlock();
         }
@@ -148,7 +148,7 @@ class CacheNode<Param, Data> {
     /**
      * 从下一节点获取数据
      */
-    private DataPack<Data> getDataFromNextNode(DataContext<Param> context, IDatasource<Param, Data> datasource) {
+    private DataPack<Data> getDataFromNextNode(DataContext<Param> context, IDatasource<Param, Data> datasource, boolean needStore) {
         DataPack<Data> pack;
         // 若没有下一节点，则从数据源获取
         if (null == nextNode) {
@@ -156,9 +156,9 @@ class CacheNode<Param, Data> {
         }
         // 否则从下一节点获取缓存
         else {
-            pack = nextNode.getDataPackAndAutoCache(context, datasource);
+            pack = nextNode.getDataPack(context, datasource, needStore);
         }
-        return curStorage.onCacheData(context, pack);
+        return needStore ? curStorage.onCacheData(context, pack) : pack;
     }
 
     /**

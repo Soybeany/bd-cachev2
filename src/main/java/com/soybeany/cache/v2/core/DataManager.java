@@ -6,6 +6,7 @@ import com.soybeany.cache.v2.contract.IDatasource;
 import com.soybeany.cache.v2.contract.IKeyConverter;
 import com.soybeany.cache.v2.contract.ILogger;
 import com.soybeany.cache.v2.exception.BdCacheException;
+import com.soybeany.cache.v2.exception.NoDataSourceException;
 import com.soybeany.cache.v2.model.DataContext;
 import com.soybeany.cache.v2.model.DataCore;
 import com.soybeany.cache.v2.model.DataPack;
@@ -92,16 +93,23 @@ public class DataManager<Param, Data> {
      * 获得数据(数据包方式)
      */
     public DataPack<Data> getDataPack(Param param, IDatasource<Param, Data> datasource) {
+        return getDataPack(param, datasource, true);
+    }
+
+    /**
+     * 获得数据(数据包方式)
+     */
+    public DataPack<Data> getDataPack(Param param, IDatasource<Param, Data> datasource, boolean needStore) {
         // 没有缓存节点的情况
         if (null == firstNode) {
             return innerGetDataPackDirectly(param, datasource);
         }
         // 有缓存节点的情况
         DataContext<Param> context = getNewDataContext(param);
-        DataPack<Data> pack = firstNode.getDataPackAndAutoCache(context, datasource);
+        DataPack<Data> pack = firstNode.getDataPack(context, datasource, needStore);
         // 记录日志
         if (null != contextCore.logger) {
-            contextCore.logger.onGetData(context, pack);
+            contextCore.logger.onGetData(context, pack, needStore);
         }
         return pack;
     }
@@ -206,6 +214,29 @@ public class DataManager<Param, Data> {
         }
     }
 
+    /**
+     * 指定的缓存是否存在
+     */
+    public boolean containCache(Param param) {
+        // 没有缓存节点的情况
+        if (null == firstNode) {
+            return false;
+        }
+        // 有缓存节点的情况
+        DataContext<Param> context = getNewDataContext(param);
+        boolean exist = true;
+        try {
+            firstNode.getDataPack(context, null, false).getData();
+        } catch (NoDataSourceException e) {
+            exist = false;
+        }
+        // 记录日志
+        if (null != contextCore.logger) {
+            contextCore.logger.onContainCache(context, exist);
+        }
+        return exist;
+    }
+
     // ********************内部方法********************
 
     private DataContext<Param> getNewDataContext(Param param) {
@@ -225,7 +256,7 @@ public class DataManager<Param, Data> {
         DataPack<Data> pack = CacheNode.getDataDirectly(this, param, datasource);
         // 记录日志
         if (null != contextCore.logger) {
-            contextCore.logger.onGetData(getNewDataContext(param), pack);
+            contextCore.logger.onGetData(getNewDataContext(param), pack, false);
         }
         return pack;
     }

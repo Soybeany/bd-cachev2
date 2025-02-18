@@ -1,10 +1,7 @@
 package com.soybeany.cache.v2.core;
 
 
-import com.soybeany.cache.v2.contract.ICacheStorage;
-import com.soybeany.cache.v2.contract.IDatasource;
-import com.soybeany.cache.v2.contract.IKeyConverter;
-import com.soybeany.cache.v2.contract.ILogger;
+import com.soybeany.cache.v2.contract.*;
 import com.soybeany.cache.v2.exception.BdCacheException;
 import com.soybeany.cache.v2.exception.NoDataSourceException;
 import com.soybeany.cache.v2.model.DataContext;
@@ -305,32 +302,20 @@ public class DataManager<Param, Data> {
 
     public static class Builder<Param, Data> {
 
-        private final List<CacheNode<Param, Data>> mNodes = new ArrayList<>();
+        private final LinkedList<CacheNode<Param, Data>> mNodes = new LinkedList<>();
         private final String dataDesc;
         private final IDatasource<Param, Data> defaultDatasource;
         private final IKeyConverter<Param> paramKeyConverter;
 
-        /**
-         * 数据存储的唯一id，某些存储方式会将相同的storageId共享存储
-         */
         private String storageId;
 
-        /**
-         * 配置入参描述转换器
-         * <br>* 根据入参定义自动输出的日志中使用的paramDesc
-         * <br>* 默认使用构造时指定的“defaultConverter”
-         */
         private IKeyConverter<Param> paramDescConverter;
 
-        /**
-         * 若需要记录日志，则配置该logger
-         */
         private ILogger<Param, Data> logger;
 
-        /**
-         * 是否允许在数据源出现异常时，使用上一次已失效的缓存数据，使用异常的生存时间
-         */
         private boolean enableRenewExpiredCache;
+
+        private IDataChecker.Holder<Param, Data> checkerHolder;
 
         public static <Data> Builder<String, Data> get(String dataDesc, IDatasource<String, Data> datasource) {
             return new Builder<>(dataDesc, datasource, new IKeyConverter.Std());
@@ -348,23 +333,47 @@ public class DataManager<Param, Data> {
             this.paramDescConverter = keyConverter;
         }
 
+        /**
+         * 数据存储的唯一id，某些存储方式会将相同的storageId共享存储
+         */
         public Builder<Param, Data> storageId(String storageId) {
             this.storageId = storageId;
             return this;
         }
 
+        /**
+         * 配置入参描述转换器
+         * <br>* 根据入参定义自动输出的日志中使用的paramDesc
+         * <br>* 默认使用构造时指定的“defaultConverter”
+         */
         public Builder<Param, Data> paramDescConverter(IKeyConverter<Param> paramDescConverter) {
             this.paramDescConverter = paramDescConverter;
             return this;
         }
 
+        /**
+         * 若需要记录日志，则配置该logger
+         */
         public Builder<Param, Data> logger(ILogger<Param, Data> logger) {
             this.logger = logger;
             return this;
         }
 
+        /**
+         * 是否允许在数据源出现异常时，临时激活上一次已失效的缓存数据，使用异常时的生存时间
+         */
         public Builder<Param, Data> enableRenewExpiredCache(boolean flag) {
             this.enableRenewExpiredCache = flag;
+            return this;
+        }
+
+        /**
+         * 启用数据检查
+         *
+         * @param minInterval 最小检查间隔(单位：毫秒)
+         */
+        public Builder<Param, Data> enableDataCheck(long minInterval, IDataChecker<Param, Data> checker) {
+            this.checkerHolder = new IDataChecker.Holder<>(minInterval, checker);
             return this;
         }
 
@@ -374,14 +383,13 @@ public class DataManager<Param, Data> {
          * 使用缓存存储器，可以多次调用，形成多级缓存
          * <br>第一次调用为一级缓存，第二次为二级缓存...以此类推
          * <br>数据查找时一级缓存最先被触发
-         * <br/>自定义storage时需注意，多级缓存，最终的优先级会逐级减一
          */
         public Builder<Param, Data> withCache(ICacheStorage<Param, Data> storage) {
             if (null == storage) {
                 throw new BdCacheException("storage不能为null");
             }
             // 添加到存储器列表
-            mNodes.add(new CacheNode<>(storage, storage.priority() - mNodes.size(), storage.lockWaitTime()));
+            mNodes.add(new CacheNode<>(storage, storage.lockWaitTime()));
             return this;
         }
 
@@ -392,14 +400,18 @@ public class DataManager<Param, Data> {
             // 初始化存储
             List<ICacheStorage<Param, Data>> storages = new ArrayList<>();
             DataContext.Core<Param, Data> core = initContextCore(storages);
-            // 节点排序
-            mNodes.sort(new ServiceComparator());
-            // 为末端节点的存储设置缓存重用
-            if (!mNodes.isEmpty() && enableRenewExpiredCache) {
-                mNodes.get(0).getCurStorage().enableRenewExpiredCache(true);
+            CacheNode<Param, Data> firstNode = null;
+            if (!mNodes.isEmpty()) {
+                firstNode = mNodes.getFirst();
+                // 创建调用链
+                buildChain();
+                // 为首节点设置检查器
+                firstNode.setCheckerHolder(checkerHolder);
+                // 为末节点的存储设置缓存重用
+                if (enableRenewExpiredCache) {
+                    mNodes.getLast().getCurStorage().enableRenewExpiredCache(true);
+                }
             }
-            // 创建调用链
-            CacheNode<Param, Data> firstNode = buildChain();
             // 创建管理器实例
             return new DataManager<>(
                     core,
@@ -425,24 +437,18 @@ public class DataManager<Param, Data> {
             return core;
         }
 
-        private CacheNode<Param, Data> buildChain() {
-            CacheNode<Param, Data> nextNode = null;
-            for (CacheNode<Param, Data> node : mNodes) {
-                node.setNextNode(nextNode);
-                nextNode = node;
+        private void buildChain() {
+            if (mNodes.isEmpty()) {
+                return;
             }
-            return nextNode;
-        }
-
-        /**
-         * 用于缓存服务的排序器
-         */
-        private static class ServiceComparator implements Comparator<CacheNode<?, ?>> {
-            @Override
-            public int compare(CacheNode o1, CacheNode o2) {
-                return o1.getPriority() - o2.getPriority();
+            CacheNode<Param, Data> curNode = mNodes.getFirst(), nextNode;
+            curNode.setIndex(0);
+            for (int i = 1; i < mNodes.size(); i++) {
+                nextNode = mNodes.get(i);
+                curNode.setNextNode(nextNode);
+                curNode = nextNode;
+                curNode.setIndex(i);
             }
         }
     }
-
 }

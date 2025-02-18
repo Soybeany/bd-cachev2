@@ -18,25 +18,11 @@ import java.util.Map;
 public interface ICacheStorage<Param, Data> {
 
     /**
-     * 默认的优先级
-     */
-    int ORDER_DEFAULT = 10;
-
-    /**
      * 默认的锁等待时间
      */
     long LOCK_WAIT_TIME_DEFAULT = 30;
 
     // ********************配置类********************
-
-    /**
-     * 指定优先级
-     *
-     * @return 优先级值，值越大，越先被使用
-     */
-    default int priority() {
-        return ORDER_DEFAULT;
-    }
 
     /**
      * 指定锁等待时间
@@ -126,6 +112,20 @@ public interface ICacheStorage<Param, Data> {
      * 清除全部缓存
      */
     void onClearCache(DataContext.Core<Param, Data> contextCore);
+
+    /**
+     * 获取下次检查的时间戳
+     */
+    default long getNextCheckStamp(DataContext<Param> context) {
+        throw new BdCacheException("不支持此功能");
+    }
+
+    /**
+     * 设置下次检查的时间戳
+     */
+    default void setNextCheckStamp(DataContext<Param> context, long stamp) {
+        throw new BdCacheException("不支持此功能");
+    }
 
     // ***********************主动调用类****************************
 

@@ -1,6 +1,7 @@
 package com.soybeany.cache.v2.core;
 
 import com.soybeany.cache.v2.contract.ICacheStorage;
+import com.soybeany.cache.v2.contract.IDataChecker;
 import com.soybeany.cache.v2.contract.IDatasource;
 import com.soybeany.cache.v2.exception.CacheWaitException;
 import com.soybeany.cache.v2.exception.NoCacheException;
@@ -24,9 +25,11 @@ class CacheNode<Param, Data> {
 
     private final Map<String, Lock> mKeyMap = new WeakHashMap<>();
     private final ICacheStorage<Param, Data> curStorage;
-    private final int priority;
     private final long lockWaitTime;
+
+    private int index;
     private CacheNode<Param, Data> nextNode;
+    private IDataChecker.Holder<Param, Data> checkerHolder;
 
     public static <Param, Data> DataPack<Data> getDataDirectly(Object invoker, Param param, IDatasource<Param, Data> datasource) {
         // 没有指定数据源
@@ -42,9 +45,8 @@ class CacheNode<Param, Data> {
         }
     }
 
-    public CacheNode(ICacheStorage<Param, Data> curStorage, int priority, long lockWaitTime) {
+    public CacheNode(ICacheStorage<Param, Data> curStorage, long lockWaitTime) {
         this.curStorage = curStorage;
-        this.priority = priority;
         this.lockWaitTime = lockWaitTime;
     }
 
@@ -52,26 +54,37 @@ class CacheNode<Param, Data> {
         return curStorage;
     }
 
-    public int getPriority() {
-        return priority;
-    }
-
     public CacheNode<Param, Data> getNextNode() {
         return nextNode;
+    }
+
+    public void setIndex(int index) {
+        this.index = index;
     }
 
     public void setNextNode(CacheNode<Param, Data> nextNode) {
         this.nextNode = nextNode;
     }
 
+    public void setCheckerHolder(IDataChecker.Holder<Param, Data> checkerHolder) {
+        this.checkerHolder = checkerHolder;
+    }
+
     /**
      * 获取数据并自动缓存
      */
-    public DataPack<Data> getDataPack(DataContext<Param> context, final IDatasource<Param, Data> datasource, boolean needStore) {
+    public DataPack<Data> getDataPack(DataContext<Param> context, IDatasource<Param, Data> datasource, boolean needStore) {
+        // （非首个节点）直接访问当前节点或下一节点
+        if (index != 0) {
+            return getDataFromCurNodeOrNext(context, datasource, needStore);
+        }
+        // （首个节点）若支持双重检查，则先尝试无锁访问，再加锁访问
         if (curStorage.needDoubleCheck()) {
-            return getDataFromCurNode(context, () -> doGetDataPack(context, datasource, needStore));
-        } else {
-            return doGetDataPack(context, datasource, needStore);
+            return getDataFromCurNodeOrCallback(context, () -> getDataWithLock(context, datasource, needStore));
+        }
+        // （首个节点）不支持双重检查，则直接加锁访问
+        else {
+            return getDataWithLock(context, datasource, needStore);
         }
     }
 
@@ -127,7 +140,7 @@ class CacheNode<Param, Data> {
         }
     }
 
-    private DataPack<Data> doGetDataPack(DataContext<Param> context, final IDatasource<Param, Data> datasource, boolean needStore) {
+    private DataPack<Data> getDataWithLock(DataContext<Param> context, IDatasource<Param, Data> datasource, boolean needStore) {
         // 加锁，避免并发时数据重复获取
         Lock lock = getLock(context.param.paramKey);
         try {
@@ -138,11 +151,32 @@ class CacheNode<Param, Data> {
             return new DataPack<>(DataCore.fromException(new CacheWaitException("中断")), curStorage, 0);
         }
         try {
-            // 再查一次本节点，避免由于并发多次调用下一节点
-            return getDataFromCurNode(context, () -> getDataFromNextNode(context, datasource, needStore));
+            // 再查一次本节点，避免由于并发等待，进锁后多次调用下一节点
+            DataPack<Data> pack = getDataFromCurNodeOrNext(context, datasource, needStore);
+            // 需要数据检查
+            if (null != checkerHolder) {
+                // 若来源于数据源，则直接赋值
+                if (pack.provider instanceof IDatasource) {
+                    setupNextCheckStamp(context);
+                }
+                // 若晚于检查时间戳，则检查
+                else if (System.currentTimeMillis() > curStorage.getNextCheckStamp(context)) {
+                    // 若检查结果为需要更新，则先失效缓存，再获取一次数据，最后设置检查时间戳
+                    if (checkerHolder.checker.needUpdate(context.param.param, pack)) {
+                        invalidCache(context);
+                        pack = getDataFromCurNodeOrNext(context, datasource, needStore);
+                        setupNextCheckStamp(context);
+                    }
+                }
+            }
+            return pack;
         } finally {
             lock.unlock();
         }
+    }
+
+    private void setupNextCheckStamp(DataContext<Param> context) {
+        curStorage.setNextCheckStamp(context, System.currentTimeMillis() + checkerHolder.minInterval);
     }
 
     /**
@@ -161,10 +195,14 @@ class CacheNode<Param, Data> {
         return needStore ? curStorage.onCacheData(context, pack) : pack;
     }
 
+    private DataPack<Data> getDataFromCurNodeOrNext(DataContext<Param> context, IDatasource<Param, Data> datasource, boolean needStore) {
+        return getDataFromCurNodeOrCallback(context, () -> getDataFromNextNode(context, datasource, needStore));
+    }
+
     /**
      * 从本地缓存服务获取数据
      */
-    private DataPack<Data> getDataFromCurNode(DataContext<Param> context, ICallback1<Data> callback) {
+    private DataPack<Data> getDataFromCurNodeOrCallback(DataContext<Param> context, ICallback1<Data> callback) {
         try {
             return curStorage.onGetCache(context);
         } catch (NoCacheException e) {

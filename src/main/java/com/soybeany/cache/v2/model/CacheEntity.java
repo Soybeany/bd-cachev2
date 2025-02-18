@@ -16,6 +16,11 @@ public class CacheEntity<Data> {
      */
     public final long pExpireAt;
 
+    /**
+     * 该数据下次检查的时间戳(时间点)
+     */
+    public long pNextCheckAt;
+
     public static <Data> CacheEntity<Data> fromDataPack(DataPack<Data> dataPack, long curTimestamp, long pTtlMaxNorm, long pTtlMaxErr) {
         long pTtlMax = dataPack.dataCore.norm ? pTtlMaxNorm : pTtlMaxErr;
         long pTtl = Math.min(dataPack.pTtl, pTtlMax);

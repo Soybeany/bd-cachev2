@@ -74,6 +74,19 @@ public class LruMemCacheStorage<Param, Data> extends StdStorage<Param, Data> {
         return System.currentTimeMillis();
     }
 
+    @Override
+    public long getNextCheckStamp(DataContext<Param> context) {
+        return mapStorage.onLoad(getKey(context))
+                .map(entity -> entity.pNextCheckAt)
+                .orElse(0L);
+    }
+
+    @Override
+    public void setNextCheckStamp(DataContext<Param> context, long stamp) {
+        mapStorage.onLoad(getKey(context))
+                .ifPresent(entity -> entity.pNextCheckAt = stamp);
+    }
+
     // ***********************内部类****************************
 
     public static class Builder<Param, Data> extends StdStorageBuilder<Param, Data> {

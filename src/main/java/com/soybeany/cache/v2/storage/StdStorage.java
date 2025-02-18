@@ -90,6 +90,8 @@ public abstract class StdStorage<Param, Data> implements ICacheStorage<Param, Da
         enableRenewExpiredCache = enable;
     }
 
+
+
     // ***********************子类重写****************************
 
     /**
@@ -97,6 +99,10 @@ public abstract class StdStorage<Param, Data> implements ICacheStorage<Param, Da
      */
     protected IKeyConverter<String> onSetupKeyConverter() {
         return key -> key;
+    }
+
+    protected String getKey(DataContext<Param> context) {
+        return keyConverter.getKey(context.param.paramKey);
     }
 
     protected DataPack<Data> onRewriteCacheData(CacheEntity<Data> cacheEntity, CacheEntity<Data> newCacheEntity, DataPack<Data> data) {
@@ -115,10 +121,6 @@ public abstract class StdStorage<Param, Data> implements ICacheStorage<Param, Da
     protected abstract long onGetCurTimestamp();
 
     // ***********************内部方法****************************
-
-    private String getKey(DataContext<Param> context) {
-        return keyConverter.getKey(context.param.paramKey);
-    }
 
     private DataPack<Data> simpleCacheData(DataContext<Param> context, String key, DataPack<Data> data) {
         CacheEntity<Data> cacheEntity = CacheEntity.fromDataPack(data, onGetCurTimestamp(), pTtl, pTtlErr);

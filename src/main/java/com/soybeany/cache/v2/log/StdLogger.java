@@ -96,6 +96,11 @@ public class StdLogger<Param, Data> implements ILogger<Param, Data> {
         mWriter.onWriteInfo("“" + getDataDesc(context.core) + "”" + (exist ? "存在" : "没有") + "“" + getParamDesc(context.param) + "”的缓存");
     }
 
+    @Override
+    public void onCheckCache(DataContext<Param> context, boolean needUpdate) {
+        mWriter.onWriteInfo("“" + getDataDesc(context.core) + "”" + (needUpdate ? "需要" : "无需") + "更新“" + getParamDesc(context.param) + "”的缓存");
+    }
+
     private String getFrom(Object provider, boolean needStore) {
         if (provider instanceof ICacheStorage) {
             return "缓存(" + ((ICacheStorage<?, ?>) provider).desc() + ")";

@@ -58,4 +58,9 @@ public interface ILogger<Param, Data> {
      */
     void onContainCache(DataContext<Param> context, boolean exist);
 
+    /**
+     * 检查缓存是否存在更新的回调
+     */
+    void onCheckCache(DataContext<Param> context, boolean needUpdate);
+
 }

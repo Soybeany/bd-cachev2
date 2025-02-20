@@ -78,14 +78,8 @@ class CacheNode<Param, Data> {
         if (index != 0) {
             return getDataFromCurNodeOrNext(context, datasource, needStore);
         }
-        // （首个节点）若支持双重检查，则先尝试无锁访问，再加锁访问
-        if (curStorage.needDoubleCheck()) {
-            return getDataFromCurNodeOrCallback(context, () -> getDataWithLock(context, datasource, needStore));
-        }
         // （首个节点）不支持双重检查，则直接加锁访问
-        else {
-            return getDataWithLock(context, datasource, needStore);
-        }
+        return getDataWithLock(context, datasource, needStore);
     }
 
     public void cacheData(DataContext<Param> context, DataPack<Data> pack) {
@@ -161,8 +155,10 @@ class CacheNode<Param, Data> {
                 }
                 // 若晚于检查时间戳，则检查
                 else if (System.currentTimeMillis() > curStorage.getNextCheckStamp(context)) {
+                    boolean needUpdate = checkerHolder.checker.needUpdate(context.param.param, pack);
+                    context.core.logger.onCheckCache(context, needUpdate);
                     // 若检查结果为需要更新，则先失效缓存，再获取一次数据，最后设置检查时间戳
-                    if (checkerHolder.checker.needUpdate(context.param.param, pack)) {
+                    if (needUpdate) {
                         invalidCache(context);
                         pack = getDataFromCurNodeOrNext(context, datasource, needStore);
                         setupNextCheckStamp(context);

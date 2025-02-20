@@ -438,9 +438,6 @@ public class DataManager<Param, Data> {
         }
 
         private void buildChain() {
-            if (mNodes.isEmpty()) {
-                return;
-            }
             CacheNode<Param, Data> curNode = mNodes.getFirst(), nextNode;
             curNode.setIndex(0);
             for (int i = 1; i < mNodes.size(); i++) {

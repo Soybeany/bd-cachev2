@@ -105,9 +105,9 @@ public abstract class StdStorage<Param, Data> implements ICacheStorage<Param, Da
         return keyConverter.getKey(context.param.paramKey);
     }
 
-    protected DataPack<Data> onRewriteCacheData(CacheEntity<Data> cacheEntity, CacheEntity<Data> newCacheEntity, DataPack<Data> data) {
+    protected DataPack<Data> onRewriteCacheData(CacheEntity<Data> cacheEntity, CacheEntity<Data> newCacheEntity, DataPack<Data> dataPack) {
         if (newCacheEntity == cacheEntity) {
-            return data;
+            return CacheEntity.toDataPack(cacheEntity, dataPack.provider, onGetCurTimestamp());
         }
         return CacheEntity.toDataPack(newCacheEntity, this, onGetCurTimestamp());
     }
@@ -122,10 +122,10 @@ public abstract class StdStorage<Param, Data> implements ICacheStorage<Param, Da
 
     // ***********************内部方法****************************
 
-    private DataPack<Data> simpleCacheData(DataContext<Param> context, String key, DataPack<Data> data) {
-        CacheEntity<Data> cacheEntity = CacheEntity.fromDataPack(data, onGetCurTimestamp(), pTtl, pTtlErr);
+    private DataPack<Data> simpleCacheData(DataContext<Param> context, String key, DataPack<Data> dataPack) {
+        CacheEntity<Data> cacheEntity = CacheEntity.fromDataPack(dataPack, onGetCurTimestamp(), pTtl, pTtlErr);
         CacheEntity<Data> newCacheEntity = onSaveCacheEntity(context, key, cacheEntity);
-        return onRewriteCacheData(cacheEntity, newCacheEntity, data);
+        return onRewriteCacheData(cacheEntity, newCacheEntity, dataPack);
     }
 
 }

@@ -53,7 +53,6 @@ public class CacheWaitTest {
         assert exceptionCount == 9;
     }
 
-
     private static class TestStorage<Param, Data> extends LruMemCacheStorage<Param, Data> {
 
         public TestStorage(int pTtl) {

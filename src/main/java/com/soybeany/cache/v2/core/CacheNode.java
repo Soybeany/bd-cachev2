@@ -3,6 +3,7 @@ package com.soybeany.cache.v2.core;
 import com.soybeany.cache.v2.contract.ICacheStorage;
 import com.soybeany.cache.v2.contract.IDataChecker;
 import com.soybeany.cache.v2.contract.IDatasource;
+import com.soybeany.cache.v2.exception.BdCacheException;
 import com.soybeany.cache.v2.exception.CacheWaitException;
 import com.soybeany.cache.v2.exception.NoCacheException;
 import com.soybeany.cache.v2.exception.NoDataSourceException;
@@ -14,6 +15,8 @@ import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Consumer;
+import java.util.function.Function;
 
 /**
  * 链式设计中的节点
@@ -74,20 +77,22 @@ class CacheNode<Param, Data> {
      * 获取数据并自动缓存
      */
     public DataPack<Data> getDataPack(DataContext<Param> context, IDatasource<Param, Data> datasource, boolean needStore) {
-        // （非首个节点）直接访问当前节点或下一节点
-        if (index != 0) {
-            return getDataFromCurNodeOrNext(context, datasource, needStore);
-        }
-        // （首个节点）不支持双重检查，则直接加锁访问
-        return getDataWithLock(context, datasource, needStore);
+        return exeWithLock(context, useLock -> {
+            DataPack<Data> pack = getDataFromCurNodeOrNext(context, datasource, needStore);
+            return useLock ? getDataWithCheck(context, pack, datasource, needStore) : pack;
+        }, e -> new DataPack<>(DataCore.fromException(e), curStorage, 0));
     }
 
     public void cacheData(DataContext<Param> context, DataPack<Data> pack) {
-        traverseR((node, prePack) -> node.curStorage.onCacheData(context, prePack), pack);
+        exeWithLock(context, () -> {
+            traverseR((node, prePack) -> node.curStorage.onCacheData(context, prePack), pack);
+            setupNextCheckStamp(context);
+        });
     }
 
     public void batchCacheData(DataContext.Core<Param, Data> contextCore, Map<DataContext.Param<Param>, DataPack<Data>> dataPacks) {
         traverseR((node, prePacks) -> node.curStorage.onBatchCacheData(contextCore, prePacks), dataPacks);
+        dataPacks.forEach((k, v) -> setupNextCheckStamp(new DataContext<>(contextCore, k)));
     }
 
     public void invalidCache(DataContext<Param> context, int... storageIndexes) {
@@ -104,6 +109,17 @@ class CacheNode<Param, Data> {
 
     public void clearCache(DataContext.Core<Param, Data> contextCore, int... storageIndexes) {
         traverse(node -> node.curStorage.onClearCache(contextCore), storageIndexes);
+    }
+
+    public void dataCheck(DataContext<Param> context, IDataChecker<Param, Data> checker) {
+        boolean needUpdate = checker.needUpdate(context.param.param, pack);
+        context.core.logger.onCheckCache(context, needUpdate);
+        // 若检查结果为需要更新，则先失效缓存，再获取一次数据，最后设置检查时间戳
+        if (needUpdate) {
+            invalidCache(context);
+            pack = getDataFromCurNodeOrNext(context, datasource, needStore);
+            setupNextCheckStamp(context);
+        }
     }
 
     // ****************************************内部方法****************************************
@@ -134,38 +150,60 @@ class CacheNode<Param, Data> {
         }
     }
 
-    private DataPack<Data> getDataWithLock(DataContext<Param> context, IDatasource<Param, Data> datasource, boolean needStore) {
+    private DataPack<Data> getDataWithCheck(DataContext<Param> context, DataPack<Data> pack, IDatasource<Param, Data> datasource, boolean needStore) {
+        // 不需要数据检查
+        if (null == checkerHolder) {
+            return pack;
+        }
+        // 若来源于数据源，则直接赋值
+        if (pack.provider instanceof IDatasource) {
+            setupNextCheckStamp(context);
+        }
+        // 若晚于检查时间戳，则检查
+        else if (System.currentTimeMillis() > curStorage.getNextCheckStamp(context)) {
+            boolean needUpdate = checkerHolder.checker.needUpdate(context.param.param, pack);
+            context.core.logger.onCheckCache(context, needUpdate);
+            // 若检查结果为需要更新，则先失效缓存，再获取一次数据，最后设置检查时间戳
+            if (needUpdate) {
+                invalidCache(context);
+                pack = getDataFromCurNodeOrNext(context, datasource, needStore);
+                setupNextCheckStamp(context);
+            }
+        }
+        return pack;
+    }
+
+    private void exeWithLock(DataContext<Param> context, Consumer<Boolean> callback) {
+        exeWithLock(context, useLock -> {
+            callback.accept(useLock);
+            return null;
+        }, e -> {
+            throw new BdCacheException(e.getMessage());
+        });
+    }
+
+    private <T> T exeWithLock(DataContext<Param> context, Function<Boolean, T> callback, Function<RuntimeException, T> onException) {
+        // 若非第一节点，不需要加锁
+        if (index != 0) {
+            try {
+                return callback.apply(false);
+            } catch (RuntimeException e) {
+                return onException.apply(e);
+            }
+        }
         // 加锁，避免并发时数据重复获取
         Lock lock = getLock(context.param.paramKey);
         try {
             if (!lock.tryLock(lockWaitTime, TimeUnit.SECONDS)) {
-                return new DataPack<>(DataCore.fromException(new CacheWaitException("超时")), curStorage, 0);
+                return onException.apply(new CacheWaitException("超时"));
             }
         } catch (InterruptedException e) {
-            return new DataPack<>(DataCore.fromException(new CacheWaitException("中断")), curStorage, 0);
+            return onException.apply(new CacheWaitException("中断"));
         }
         try {
-            // 再查一次本节点，避免由于并发等待，进锁后多次调用下一节点
-            DataPack<Data> pack = getDataFromCurNodeOrNext(context, datasource, needStore);
-            // 需要数据检查
-            if (null != checkerHolder) {
-                // 若来源于数据源，则直接赋值
-                if (pack.provider instanceof IDatasource) {
-                    setupNextCheckStamp(context);
-                }
-                // 若晚于检查时间戳，则检查
-                else if (System.currentTimeMillis() > curStorage.getNextCheckStamp(context)) {
-                    boolean needUpdate = checkerHolder.checker.needUpdate(context.param.param, pack);
-                    context.core.logger.onCheckCache(context, needUpdate);
-                    // 若检查结果为需要更新，则先失效缓存，再获取一次数据，最后设置检查时间戳
-                    if (needUpdate) {
-                        invalidCache(context);
-                        pack = getDataFromCurNodeOrNext(context, datasource, needStore);
-                        setupNextCheckStamp(context);
-                    }
-                }
-            }
-            return pack;
+            return callback.apply(true);
+        } catch (RuntimeException e) {
+            return onException.apply(e);
         } finally {
             lock.unlock();
         }

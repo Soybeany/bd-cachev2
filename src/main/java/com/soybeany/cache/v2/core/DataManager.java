@@ -234,6 +234,17 @@ public class DataManager<Param, Data> {
         return exist;
     }
 
+    /**
+     * 立刻进行数据检测
+     */
+    public void dataCheck(IDataChecker<Param, Data> checker) {
+        if (null == firstNode) {
+            return;
+        }
+        this.checkerHolder = new IDataChecker.Holder<>(minInterval, checker);
+        return this;
+    }
+
     // ********************内部方法********************
 
     private DataContext<Param> getNewDataContext(Param param) {

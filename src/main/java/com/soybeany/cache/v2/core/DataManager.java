@@ -234,19 +234,19 @@ public class DataManager<Param, Data> {
         return exist;
     }
 
-    public void dataCheck(Param param, IDataChecker<Param, Data> checker) {
-        dataCheck(param, checker, defaultDatasource);
+    public boolean dataCheck(Param param, IDataChecker<Param, Data> checker) {
+        return dataCheck(param, checker, defaultDatasource);
     }
 
     /**
      * 立刻进行数据检测
      */
-    public void dataCheck(Param param, IDataChecker<Param, Data> checker, IDatasource<Param, Data> datasource) {
+    public boolean dataCheck(Param param, IDataChecker<Param, Data> checker, IDatasource<Param, Data> datasource) {
         if (null == firstNode) {
-            return;
+            return true;
         }
         DataContext<Param> context = getNewDataContext(param);
-        firstNode.dataCheck(context, checker, datasource, true);
+        return firstNode.dataCheck(context, checker, datasource, true);
     }
 
     // ********************内部方法********************

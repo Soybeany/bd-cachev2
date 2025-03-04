@@ -2,10 +2,10 @@ package com.soybeany.cache.v2.contract;
 
 import com.soybeany.cache.v2.model.DataPack;
 
-public interface IDataChecker<Param, Data> {
+public interface ICacheChecker<Param, Data> {
 
     /**
-     * 判断数据是否需要更新
+     * 判断缓存是否需要更新
      *
      * @param param    请求参数
      * @param dataPack 上一次缓存的数据包

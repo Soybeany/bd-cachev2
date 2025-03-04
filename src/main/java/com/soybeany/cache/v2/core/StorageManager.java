@@ -1,7 +1,7 @@
 package com.soybeany.cache.v2.core;
 
+import com.soybeany.cache.v2.contract.ICacheChecker;
 import com.soybeany.cache.v2.contract.ICacheStorage;
-import com.soybeany.cache.v2.contract.IDataChecker;
 import com.soybeany.cache.v2.contract.IDatasource;
 import com.soybeany.cache.v2.exception.BdCacheException;
 import com.soybeany.cache.v2.exception.CacheWaitException;
@@ -53,7 +53,7 @@ public class StorageManager<Param, Data> {
         storages.add(storage);
     }
 
-    public void setDataChecker(long minInterval, IDataChecker<Param, Data> checker) {
+    public void setDataChecker(long minInterval, ICacheChecker<Param, Data> checker) {
         checkerHolder = new ICheckHolder<Param, Data>() {
             @Override
             public boolean needUpdate(DataContext<Param> context, DataPack<Data> dataPack) {
@@ -154,10 +154,7 @@ public class StorageManager<Param, Data> {
         exeWithLocks(mKeyMap.keySet(), () -> traverse(storage -> storage.onClearCache(contextCore), storageIndexes));
     }
 
-    /**
-     * 数据是否有效
-     */
-    public boolean dataCheck(DataContext<Param> context, IDataChecker<Param, Data> checker, IDatasource<Param, Data> datasource) {
+    public boolean checkCache(DataContext<Param> context, ICacheChecker<Param, Data> checker, IDatasource<Param, Data> datasource) {
         return exeWithLock2(context, () -> needUpdate(checker, context, onGetDataPack(context, datasource, true)));
     }
 
@@ -182,7 +179,7 @@ public class StorageManager<Param, Data> {
         }
     }
 
-    private boolean needUpdate(IDataChecker<Param, Data> checker, DataContext<Param> context, DataPack<Data> dataPack) {
+    private boolean needUpdate(ICacheChecker<Param, Data> checker, DataContext<Param> context, DataPack<Data> dataPack) {
         boolean needUpdate = checker.needUpdate(context.param.param, dataPack);
         context.core.logger.onCheckCache(context, needUpdate);
         if (needUpdate) {

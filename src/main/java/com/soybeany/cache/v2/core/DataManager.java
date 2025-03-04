@@ -213,16 +213,23 @@ public class DataManager<Param, Data> {
         return exist;
     }
 
-    public boolean dataCheck(Param param, IDataChecker<Param, Data> checker) {
-        return dataCheck(param, checker, defaultDatasource);
+    /**
+     * 立刻进行缓存检测
+     *
+     * @return 缓存是否需要更新
+     */
+    public boolean checkCache(Param param, ICacheChecker<Param, Data> checker) {
+        return checkCache(param, checker, defaultDatasource);
     }
 
     /**
-     * 立刻进行数据检测
+     * 立刻进行缓存检测
+     *
+     * @return 缓存是否需要更新
      */
-    public boolean dataCheck(Param param, IDataChecker<Param, Data> checker, IDatasource<Param, Data> datasource) {
+    public boolean checkCache(Param param, ICacheChecker<Param, Data> checker, IDatasource<Param, Data> datasource) {
         DataContext<Param> context = getNewDataContext(param);
-        return storageManager.dataCheck(context, checker, datasource);
+        return storageManager.checkCache(context, checker, datasource);
     }
 
     // ********************内部方法********************
@@ -332,7 +339,7 @@ public class DataManager<Param, Data> {
          *
          * @param minInterval 最小检查间隔(单位：毫秒)
          */
-        public Builder<Param, Data> enableDataCheck(long minInterval, IDataChecker<Param, Data> checker) {
+        public Builder<Param, Data> enableDataCheck(long minInterval, ICacheChecker<Param, Data> checker) {
             storageManager.setDataChecker(minInterval, checker);
             return this;
         }

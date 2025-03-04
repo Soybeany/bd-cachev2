@@ -1,7 +1,7 @@
 package com.soybeany.cache.v2.dm;
 
+import com.soybeany.cache.v2.contract.ICacheChecker;
 import com.soybeany.cache.v2.contract.ICacheStorage;
-import com.soybeany.cache.v2.contract.IDataChecker;
 import com.soybeany.cache.v2.contract.IDatasource;
 import com.soybeany.cache.v2.core.DataManager;
 import com.soybeany.cache.v2.log.ConsoleLogger;
@@ -14,7 +14,7 @@ public class CheckDMTest {
     private final long pTtl = 500;
     private int v = 0;
 
-    private final IDataChecker<String, Integer> checker = (param, dataPack) -> dataPack.getData() != v;
+    private final ICacheChecker<String, Integer> checker = (param, dataPack) -> dataPack.getData() != v;
 
     private final DataManager<String, Integer> dataManager = DataManager.Builder
             .get("数据检查测试", s -> v++)
@@ -63,7 +63,7 @@ public class CheckDMTest {
         pack = dataManager.getDataPack(key);
         assert pack.provider instanceof ICacheStorage;
 
-        boolean needUpdate = dataManager.dataCheck(key, checker);
+        boolean needUpdate = dataManager.checkCache(key, checker);
         assert needUpdate;
 
         pack = dataManager.getDataPack(key);

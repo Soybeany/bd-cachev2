@@ -12,14 +12,4 @@ public interface IDataChecker<Param, Data> {
      * @return 是否需要更新
      */
     boolean needUpdate(Param param, DataPack<Data> dataPack);
-
-    class Holder<Param, Data> {
-        public final IDataChecker<Param, Data> checker;
-        public final long minInterval;
-
-        public Holder(long minInterval, IDataChecker<Param, Data> checker) {
-            this.minInterval = minInterval;
-            this.checker = checker;
-        }
-    }
 }

@@ -27,26 +27,26 @@ public class CheckDMTest {
     public void checkTest() throws Exception {
         String key = "123";
         DataPack<Integer> pack;
-
+        // 从数据源获取
         pack = dataManager.getDataPack(key);
         assert pack.provider instanceof IDatasource;
 
         Thread.sleep(100);
-
+        // 检查周期内，缓存有效
         pack = dataManager.getDataPack(key);
         assert pack.provider instanceof ICacheStorage;
 
         Thread.sleep(300);
-
+        // 缓存周期内，检查周期外，重新从数据源获取
         pack = dataManager.getDataPack(key);
         assert pack.provider instanceof IDatasource;
         assert pack.pTtl == pTtl;
 
         Thread.sleep(500);
-
+        // 缓存周期外，重新从数据源获取
         pack = dataManager.getDataPack(key);
         assert pack.provider instanceof IDatasource;
-
+        // 数据源访问次数
         assert v == 3;
     }
 

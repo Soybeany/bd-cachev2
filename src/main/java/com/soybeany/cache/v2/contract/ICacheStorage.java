@@ -17,19 +17,7 @@ import java.util.Map;
  */
 public interface ICacheStorage<Param, Data> {
 
-    /**
-     * 默认的锁等待时间
-     */
-    long LOCK_WAIT_TIME_DEFAULT = 30;
-
     // ********************配置类********************
-
-    /**
-     * 指定锁等待时间
-     */
-    default long lockWaitTime() {
-        return LOCK_WAIT_TIME_DEFAULT;
-    }
 
     /**
      * 该存储器的描述

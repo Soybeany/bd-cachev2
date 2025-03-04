@@ -20,8 +20,26 @@ public interface IDatasource<Param, Data> {
      *
      * @return 指定数据的超时，单位为millis
      */
+    default long onSetupExpiry(Param param, Data data) {
+        return onSetupExpiry(data);
+    }
+
+    /**
+     * 为指定的数据设置超时
+     *
+     * @return 指定数据的超时，单位为millis
+     */
     default long onSetupExpiry(Data data) {
         return Long.MAX_VALUE;
+    }
+
+    /**
+     * 为指定的异常设置超时
+     *
+     * @return 指定异常的超时，单位为millis
+     */
+    default long onSetupExpiry(Param param, Exception e) {
+        return onSetupExpiry(e);
     }
 
     /**

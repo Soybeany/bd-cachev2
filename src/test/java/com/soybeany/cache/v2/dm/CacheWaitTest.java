@@ -21,7 +21,8 @@ public class CacheWaitTest {
 
     private final DataManager<String, String> dataManager = DataManager.Builder
             .get("锁测试", datasource)
-            .withCache(new TestStorage<>(200))
+            .withCache(new LruMemCacheStorage.Builder<String, String>().pTtl(200).build())
+            .lockWaitTime(1)
             .logger(new ConsoleLogger<>())
             .build();
 
@@ -52,17 +53,4 @@ public class CacheWaitTest {
         System.out.println("exceptionCount:" + exceptionCount);
         assert exceptionCount == 9;
     }
-
-    private static class TestStorage<Param, Data> extends LruMemCacheStorage<Param, Data> {
-
-        public TestStorage(int pTtl) {
-            super(pTtl, 60 * 1000, 100);
-        }
-
-        @Override
-        public long lockWaitTime() {
-            return 1;
-        }
-    }
-
 }

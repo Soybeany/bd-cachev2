@@ -21,7 +21,7 @@ import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
-public class StorageManager<Param, Data> {
+class StorageManager<Param, Data> {
 
     /**
      * 默认的锁等待时间

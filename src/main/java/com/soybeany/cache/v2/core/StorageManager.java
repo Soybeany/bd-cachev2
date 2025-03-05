@@ -31,7 +31,7 @@ class StorageManager<Param, Data> {
     private final Map<String, Lock> mKeyMap = new WeakHashMap<>();
     private final LinkedList<ICacheStorage<Param, Data>> storages = new LinkedList<>();
 
-    private ICheckHolder<Param, Data> checkerHolder = (context, pack) -> false;
+    private ICheckHolder<Param, Data> checkerHolder = (context, supplier) -> supplier.get();
     private long lockWaitTime = LOCK_WAIT_TIME_DEFAULT;
     private boolean enableRenewExpiredCache;
 
@@ -56,24 +56,37 @@ class StorageManager<Param, Data> {
     public void setDataChecker(long minInterval, ICacheChecker<Param, Data> checker) {
         checkerHolder = new ICheckHolder<Param, Data>() {
             @Override
-            public boolean needUpdate(DataContext<Param> context, DataPack<Data> dataPack) {
+            public DataPack<Data> getCheckedDataPack(DataContext<Param> context, Supplier<DataPack<Data>> supplier) {
+                DataPack<Data> dataPack = supplier.get();
+                // 没有缓存策略，直接返回
                 if (storages.isEmpty()) {
-                    return false;
+                    return dataPack;
                 }
+                // 来源于数据源，只更新下次检测时间，直接返回
                 if (isFromDatasource(dataPack)) {
-                    onUpdated(context);
-                    return false;
+                    updateNextCheckTime(context);
+                    return dataPack;
                 }
+
                 ICacheStorage<Param, Data> firstStorage = storages.get(0);
                 long curTimestamp = System.currentTimeMillis();
+                // 若没到检测时间，则不作处理
                 if (curTimestamp < firstStorage.getNextCheckStamp(context)) {
-                    return false;
+                    return dataPack;
                 }
-                return StorageManager.this.needUpdate(checker, context, dataPack);
+                // 已达检测时间，执行检测
+                boolean needUpdate = StorageManager.this.needUpdate(checker, context, dataPack);
+                // 若需要更新，则重新获取一次数据
+                if (needUpdate) {
+                    dataPack = supplier.get();
+                }
+                // 由于已执行检测，重新设置下次检测的时间
+                updateNextCheckTime(context);
+                return dataPack;
             }
 
             @Override
-            public void onUpdated(DataContext<Param> context) {
+            public void updateNextCheckTime(DataContext<Param> context) {
                 ICacheStorage<Param, Data> firstStorage = storages.get(0);
                 long curTimestamp = System.currentTimeMillis();
                 firstStorage.setNextCheckStamp(context, curTimestamp + minInterval);
@@ -109,15 +122,7 @@ class StorageManager<Param, Data> {
      * 获取数据并自动缓存
      */
     public DataPack<Data> getDataPack(DataContext<Param> context, IDatasource<Param, Data> datasource, boolean needStore) {
-        return exeWithLock(context, () -> {
-                    DataPack<Data> dataPack = onGetDataPack(context, datasource, needStore);
-                    boolean needUpdate = checkerHolder.needUpdate(context, dataPack);
-                    if (needUpdate) {
-                        dataPack = onGetDataPack(context, datasource, needStore);
-                        checkerHolder.onUpdated(context);
-                    }
-                    return dataPack;
-                },
+        return exeWithLock(context, () -> checkerHolder.getCheckedDataPack(context, () -> onGetDataPack(context, datasource, needStore)),
                 e -> new DataPack<>(DataCore.fromException(e), this, 0)
         );
     }
@@ -125,7 +130,7 @@ class StorageManager<Param, Data> {
     public void cacheData(DataContext<Param> context, DataPack<Data> dataPack) {
         exeWithLock(context, () -> {
             traverseR((storage, prePack) -> storage.onCacheData(context, prePack), dataPack);
-            checkerHolder.onUpdated(context);
+            checkerHolder.updateNextCheckTime(context);
         });
     }
 
@@ -134,7 +139,7 @@ class StorageManager<Param, Data> {
         List<String> keys = params.stream().map(param -> param.paramKey).collect(Collectors.toList());
         exeWithLocks(keys, () -> {
             traverseR((storage, prePacks) -> storage.onBatchCacheData(contextCore, prePacks), dataPacks);
-            params.forEach(param -> checkerHolder.onUpdated(new DataContext<>(contextCore, param)));
+            params.forEach(param -> checkerHolder.updateNextCheckTime(new DataContext<>(contextCore, param)));
         });
     }
 
@@ -155,7 +160,11 @@ class StorageManager<Param, Data> {
     }
 
     public boolean checkCache(DataContext<Param> context, ICacheChecker<Param, Data> checker, IDatasource<Param, Data> datasource) {
-        return exeWithLock2(context, () -> needUpdate(checker, context, onGetDataPack(context, datasource, true)));
+        return exeWithLock2(context, () -> {
+            boolean needUpdate = needUpdate(checker, context, onGetDataPack(context, datasource, true));
+            checkerHolder.updateNextCheckTime(context);
+            return needUpdate;
+        });
     }
 
     // ****************************************内部方法****************************************
@@ -301,9 +310,9 @@ class StorageManager<Param, Data> {
     }
 
     private interface ICheckHolder<Param, Data> {
-        boolean needUpdate(DataContext<Param> context, DataPack<Data> dataPack);
+        DataPack<Data> getCheckedDataPack(DataContext<Param> context, Supplier<DataPack<Data>> supplier);
 
-        default void onUpdated(DataContext<Param> context) {
+        default void updateNextCheckTime(DataContext<Param> context) {
         }
     }
 

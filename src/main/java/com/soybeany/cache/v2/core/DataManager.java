@@ -12,6 +12,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
 
 /**
  * 数据管理器，提供数据自动缓存/读取的核心功能
@@ -337,10 +338,10 @@ public class DataManager<Param, Data> {
         /**
          * 启用数据检查
          *
-         * @param minInterval 最小检查间隔(单位：毫秒)
+         * @param intervalSupplier 检查间隔提供者(单位：毫秒)
          */
-        public Builder<Param, Data> enableDataCheck(long minInterval, ICacheChecker<Param, Data> checker) {
-            storageManager.setDataChecker(minInterval, checker);
+        public Builder<Param, Data> enableDataCheck(Function<Param, Long> intervalSupplier, ICacheChecker<Param, Data> checker) {
+            storageManager.setDataChecker(intervalSupplier, checker);
             return this;
         }
 

@@ -53,7 +53,7 @@ class StorageManager<Param, Data> {
         storages.add(storage);
     }
 
-    public void setDataChecker(long minInterval, ICacheChecker<Param, Data> checker) {
+    public void setDataChecker(Function<Param, Long> intervalSupplier, ICacheChecker<Param, Data> checker) {
         checkerHolder = new ICheckHolder<Param, Data>() {
             @Override
             public DataPack<Data> getCheckedDataPack(DataContext<Param> context, Supplier<DataPack<Data>> supplier) {
@@ -89,7 +89,7 @@ class StorageManager<Param, Data> {
             public void updateNextCheckTime(DataContext<Param> context) {
                 ICacheStorage<Param, Data> firstStorage = storages.get(0);
                 long curTimestamp = System.currentTimeMillis();
-                firstStorage.setNextCheckStamp(context, curTimestamp + minInterval);
+                firstStorage.setNextCheckStamp(context, curTimestamp + intervalSupplier.apply(context.param.param));
             }
         };
     }

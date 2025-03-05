@@ -24,7 +24,7 @@ public class CheckDMTest {
     private final DataManager<Integer, Integer> dataManager = DataManager.Builder
             .get("数据检查测试", s -> v++, (IKeyConverter<Integer>) s -> "")
             .withCache(new LruMemCacheStorage.Builder<Integer, Integer>().pTtl(pTtl).build())
-            .enableDataCheck(200, checker)
+            .enableDataCheck(p -> 200L, checker)
             .logger(new ConsoleLogger<>())
             .build();
 

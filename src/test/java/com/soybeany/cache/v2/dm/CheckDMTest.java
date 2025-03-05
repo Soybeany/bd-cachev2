@@ -84,4 +84,16 @@ public class CheckDMTest {
         assert v == 2;
     }
 
+    @Test
+    public void checkNoCacheTest() {
+        int key = 4;
+        DataPack<Integer> pack;
+
+        boolean needUpdate = dataManager.checkCache(key, checker);
+        assert !needUpdate;
+
+        pack = dataManager.getDataPack(key);
+        assert pack.provider instanceof IDatasource;
+    }
+
 }

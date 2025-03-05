@@ -220,17 +220,8 @@ public class DataManager<Param, Data> {
      * @return 缓存是否需要更新
      */
     public boolean checkCache(Param param, ICacheChecker<Param, Data> checker) {
-        return checkCache(param, checker, defaultDatasource);
-    }
-
-    /**
-     * 立刻进行缓存检测
-     *
-     * @return 缓存是否需要更新
-     */
-    public boolean checkCache(Param param, ICacheChecker<Param, Data> checker, IDatasource<Param, Data> datasource) {
         DataContext<Param> context = getNewDataContext(param);
-        return storageManager.checkCache(context, checker, datasource);
+        return storageManager.checkCache(context, checker);
     }
 
     // ********************内部方法********************

@@ -159,9 +159,13 @@ class StorageManager<Param, Data> {
         exeWithLocks(mKeyMap.keySet(), () -> traverse(storage -> storage.onClearCache(contextCore), storageIndexes));
     }
 
-    public boolean checkCache(DataContext<Param> context, ICacheChecker<Param, Data> checker, IDatasource<Param, Data> datasource) {
+    public boolean checkCache(DataContext<Param> context, ICacheChecker<Param, Data> checker) {
         return exeWithLock2(context, () -> {
-            boolean needUpdate = needUpdate(checker, context, onGetDataPack(context, datasource, true));
+            DataPack<Data> dataPack = onGetDataPack(context, null, false);
+            if (dataPack.dataCore.exception instanceof NoDataSourceException) {
+                return false;
+            }
+            boolean needUpdate = needUpdate(checker, context, dataPack);
             checkerHolder.updateNextCheckTime(context);
             return needUpdate;
         });

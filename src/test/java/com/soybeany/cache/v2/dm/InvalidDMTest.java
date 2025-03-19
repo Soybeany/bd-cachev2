@@ -18,9 +18,11 @@ public class InvalidDMTest {
 
     private final ICacheStorage<String, String> storage = new LruMemCacheStorage.Builder<String, String>().pTtl(100).build();
 
+    private int a;
     private final DataManager<String, String> dataManager = DataManager.Builder
             .get("失效测试", normDatasource)
             .withCache(storage)
+            .onInvalidListener((k, i) -> a++)
             .enableRenewExpiredCache(true)
             .logger(new ConsoleLogger<>())
             .build();
@@ -45,6 +47,8 @@ public class InvalidDMTest {
         Thread.sleep(200);
         data = dataManager.getDataPack(key);
         assert data.norm() && normDatasource == data.provider;
+        // 检查监听回调次数
+        assert a == 2;
     }
 
     @Test
@@ -77,5 +81,4 @@ public class InvalidDMTest {
         data = dataManager.getDataPack(key2);
         assert data.norm() && normDatasource == data.provider;
     }
-
 }

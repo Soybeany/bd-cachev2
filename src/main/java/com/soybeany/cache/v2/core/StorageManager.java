@@ -3,6 +3,7 @@ package com.soybeany.cache.v2.core;
 import com.soybeany.cache.v2.contract.ICacheChecker;
 import com.soybeany.cache.v2.contract.ICacheStorage;
 import com.soybeany.cache.v2.contract.IDatasource;
+import com.soybeany.cache.v2.contract.IOnInvalidListener;
 import com.soybeany.cache.v2.exception.BdCacheException;
 import com.soybeany.cache.v2.exception.CacheWaitException;
 import com.soybeany.cache.v2.exception.NoCacheException;
@@ -30,6 +31,7 @@ class StorageManager<Param, Data> {
 
     private final Map<String, Lock> mKeyMap = new WeakHashMap<>();
     private final LinkedList<ICacheStorage<Param, Data>> storages = new LinkedList<>();
+    private final Set<IOnInvalidListener<Param>> onInvalidListeners = new HashSet<>();
 
     private ICheckHolder<Param, Data> checkerHolder = (context, supplier) -> supplier.get();
     private long lockWaitTime = LOCK_WAIT_TIME_DEFAULT;
@@ -92,6 +94,10 @@ class StorageManager<Param, Data> {
                 firstStorage.setNextCheckStamp(context, curTimestamp + intervalSupplier.apply(context.param.param));
             }
         };
+    }
+
+    public void addOnInvalidListener(IOnInvalidListener<Param> listener) {
+        onInvalidListeners.add(listener);
     }
 
     public List<ICacheStorage<Param, Data>> storages() {
@@ -229,6 +235,7 @@ class StorageManager<Param, Data> {
 
     private void onInvalidCache(DataContext<Param> context, int... storageIndexes) {
         traverse(storage -> storage.onInvalidCache(context), storageIndexes);
+        onInvalidListeners.forEach(listener -> listener.onInvoke(context.param.param, storageIndexes));
     }
 
     private void exeWithLock(DataContext<Param> context, Runnable callback) {

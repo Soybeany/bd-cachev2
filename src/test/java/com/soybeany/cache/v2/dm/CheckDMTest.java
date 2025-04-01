@@ -21,9 +21,11 @@ public class CheckDMTest {
         return dataPack.getData() < param;
     };
 
+    private int a;
     private final DataManager<Integer, Integer> dataManager = DataManager.Builder
             .get("数据检查测试", s -> v++, (IKeyConverter<Integer>) s -> "")
             .withCache(new LruMemCacheStorage.Builder<Integer, Integer>().pTtl(pTtl).build())
+            .onInvalidListener((k, i) -> a++)
             .enableDataCheck(p -> 200L, checker)
             .logger(new ConsoleLogger<>())
             .build();
@@ -51,15 +53,19 @@ public class CheckDMTest {
         pack = dataManager.getDataPack(key);
         assert pack.provider instanceof IDatasource;
 
+        // 缓存有效
         Thread.sleep(210);
         dataManager.getDataPack(key);
         dataManager.getDataPack(key);
+        // 访问数据源
         Thread.sleep(210);
         dataManager.getDataPack(key);
 
         // 数据源访问次数
         assert c == 3;
         assert v == 3;
+        // 回调执行次数
+        assert a == 1;
     }
 
     @Test
@@ -82,6 +88,7 @@ public class CheckDMTest {
         assert pack.provider instanceof IDatasource;
 
         assert v == 2;
+        assert a == 1;
     }
 
     @Test

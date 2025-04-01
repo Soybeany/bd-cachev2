@@ -361,6 +361,14 @@ public class DataManager<Param, Data> {
         }
 
         /**
+         * 新增缓存失效的监听器（单条，非全部）
+         */
+        public Builder<Param, Data> onInvalidListener(IOnInvalidListener<Param> listener) {
+            storageManager.addOnInvalidListener(listener);
+            return this;
+        }
+
+        /**
          * 构建出用于使用的实例
          */
         public DataManager<Param, Data> build() {

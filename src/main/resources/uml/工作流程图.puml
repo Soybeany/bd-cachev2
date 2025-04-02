@@ -1,7 +1,7 @@
 @startuml
 'https://plantuml.com/activity-diagram-beta
 
-group 构建
+|业务层构建|
 start
 :设置Desc;
 :设置数据源;
@@ -10,18 +10,16 @@ start
 :设置其它自定义配置;
 :构建DataManager;
 stop
-end group
 
-group 工作
+|DataManager|
 start
-group DataManager
 split
     :getData();
 split again
     :getDataPack();
 end split
-end group
 
+|StorageManager|
 if(获取锁) is(成功) then
     repeat
         if (有下级缓存?) is (否) then
@@ -39,13 +37,14 @@ else (失败)
 end if
 
 stop
-end group
 
+|StorageManager|
 group 读取缓存 #pink
 start
 stop
 end group
 
+|StorageManager|
 group 写入缓存 #lightgreen
 start
 stop

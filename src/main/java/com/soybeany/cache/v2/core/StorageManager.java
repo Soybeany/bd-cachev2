@@ -210,6 +210,7 @@ class StorageManager<Param, Data> {
     private DataPack<Data> onGetDataPack(DataContext<Param> context, IDatasource<Param, Data> datasource, boolean needStore) {
         List<ICacheStorage<Param, Data>> storeList = new ArrayList<>();
         DataPack<Data> dataPack = null;
+        // todo 每个Storage，均支持其提供锁（不提供则表示不需要锁），最后统一反向解锁
         for (ICacheStorage<Param, Data> storage : storages) {
             try {
                 dataPack = storage.onGetCache(context);

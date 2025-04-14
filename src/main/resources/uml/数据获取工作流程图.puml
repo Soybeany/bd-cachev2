@@ -1,0 +1,73 @@
+@startuml
+'https://plantuml.com/activity-diagram-beta
+
+|业务层构建|
+start
+:创建Builder;
+:设置Desc;
+:设置数据源;
+:设置Key转换器;
+:设置缓存策略;
+:设置其它自定义配置;
+:构建DataManager;
+stop
+
+|DataManager|
+start
+note right
+getData()、
+getDataPack()
+end note
+:拼接Context;
+#lightyellow:(A)
+:打印日志;
+:返回数据;
+stop
+
+|StorageManager|
+#lightyellow:(A)
+start
+if(获取锁) is(成功) then
+    repeat
+        if (有下一级缓存?) is (否) then
+            if (有数据源?) is (有) then
+                :访问数据源;
+                #lightgreen:(C)
+                note right: 写入缓存
+                break
+            else (无)
+                :抛出NoDatasource;
+                end
+            endif
+        else (是)
+            :切换到下一级缓存;
+            #lightpink:(B)
+            note: 读取缓存
+        endif
+    repeat while (捕获到NoCacheException?) is (是) not (否)
+else (失败)
+    :抛出CacheWaitException(超时/中断);
+    end
+endif
+:返回数据;
+stop
+
+|mcs| LruMemCacheStorage\n: ICacheStorage
+#lightpink:(B)
+start
+:读取Map;
+if (能获取记录?) is (是) then
+    :返回缓存;
+else (否)
+    :抛出NoCacheException;
+    end
+endif
+stop
+
+|mcs|
+#lightgreen:(C)
+start
+:将缓存写入到Map;
+stop
+
+@enduml

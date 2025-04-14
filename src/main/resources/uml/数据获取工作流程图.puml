@@ -1,7 +1,7 @@
 @startuml
 'https://plantuml.com/activity-diagram-beta
+title 业务层构建
 
-|业务层构建|
 start
 :创建Builder;
 :设置Desc;
@@ -11,8 +11,11 @@ start
 :设置其它自定义配置;
 :构建DataManager;
 stop
+@enduml
 
-|DataManager|
+@startuml
+title DataManager
+
 start
 note right
 getData()、
@@ -23,8 +26,11 @@ end note
 :打印日志;
 :返回数据;
 stop
+@enduml
 
-|StorageManager|
+@startuml
+title StorageManager
+
 #lightyellow:(A)
 start
 if(获取锁) is(成功) then
@@ -51,8 +57,11 @@ else (失败)
 endif
 :返回数据;
 stop
+@enduml
 
-|mcs| LruMemCacheStorage\n: ICacheStorage
+@startuml
+title LruMemCacheStorage: ICacheStorage
+
 #lightpink:(B)
 start
 :读取Map;
@@ -64,10 +73,8 @@ else (否)
 endif
 stop
 
-|mcs|
 #lightgreen:(C)
 start
 :将缓存写入到Map;
 stop
-
 @enduml

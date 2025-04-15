@@ -24,7 +24,7 @@ public class RenewCacheDMTest {
             .get("简单测试", datasource)
             .withCache(lruStorage)
             .withCache(dbStorage)
-            .logger(new ConsoleLogger<>())
+            .logger(new ConsoleLogger())
             .enableRenewExpiredCache(true)
             .build();
 

@@ -25,7 +25,7 @@ public class CacheWaitTest {
             .get("锁测试", datasource)
             .withCache(new LruMemCacheStorage.Builder<String, String>().pTtl(200).build())
             .lockWaitTime(1)
-            .logger(new ConsoleLogger<>())
+            .logger(new ConsoleLogger())
             .build();
 
     @Test

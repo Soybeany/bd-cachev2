@@ -34,18 +34,18 @@ public class LruMemCacheStorage<Param, Data> extends StdStorage<Param, Data> {
     }
 
     @Override
-    public synchronized void onInvalidAllCache(DataContext.Core<Param, Data> contextCore) {
+    public synchronized void onInvalidAllCache(DataContext.Core contextCore) {
         Set<String> keys = new HashSet<>(mapStorage.getMap().keySet());
         keys.forEach(key -> mapStorage.onLoad(key).ifPresent(entity -> mapStorage.onSave(key, new CacheEntity<>(entity.dataCore, 0))));
     }
 
     @Override
-    public synchronized void onClearCache(DataContext.Core<Param, Data> contextCore) {
+    public synchronized void onClearCache(DataContext.Core contextCore) {
         mapStorage.getMap().clear();
     }
 
     @Override
-    public int cachedDataCount(DataContext.Core<Param, Data> contextCore) {
+    public int cachedDataCount(DataContext.Core contextCore) {
         return mapStorage.getMap().size();
     }
 

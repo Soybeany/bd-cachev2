@@ -22,7 +22,7 @@ public class ExceptionDMTest {
     private final DataManager<String, String> dataManager = DataManager.Builder
             .get("异常测试", datasource)
             .withCache(cacheStorage)
-            .logger(new ConsoleLogger<>())
+            .logger(new ConsoleLogger())
             .build();
 
     @Test

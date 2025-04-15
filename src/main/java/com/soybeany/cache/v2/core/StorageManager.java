@@ -116,7 +116,7 @@ class StorageManager<Param, Data> {
         this.lockWaitTime = lockWaitTime;
     }
 
-    public void init(DataContext.Core<Param, Data> core) {
+    public void init(DataContext.Core core) {
         if (storages.isEmpty()) {
             return;
         }
@@ -140,7 +140,7 @@ class StorageManager<Param, Data> {
         });
     }
 
-    public void batchCacheData(DataContext.Core<Param, Data> contextCore, Map<DataContext.Param<Param>, DataPack<Data>> dataPacks) {
+    public void batchCacheData(DataContext.Core contextCore, Map<DataContext.Param<Param>, DataPack<Data>> dataPacks) {
         Set<DataContext.Param<Param>> params = dataPacks.keySet();
         List<String> keys = params.stream().map(param -> param.paramKey).collect(Collectors.toList());
         exeWithLocks(keys, () -> {
@@ -153,7 +153,7 @@ class StorageManager<Param, Data> {
         exeWithLock(context, () -> onInvalidCache(context, storageIndexes));
     }
 
-    public void invalidAllCache(DataContext.Core<Param, Data> contextCore, int... storageIndexes) {
+    public void invalidAllCache(DataContext.Core contextCore, int... storageIndexes) {
         exeWithLocks(mKeyMap.keySet(), () -> traverse(storage -> storage.onInvalidAllCache(contextCore), storageIndexes));
     }
 
@@ -161,7 +161,7 @@ class StorageManager<Param, Data> {
         exeWithLock(context, () -> traverse(storage -> storage.onRemoveCache(context), storageIndexes));
     }
 
-    public void clearCache(DataContext.Core<Param, Data> contextCore, int... storageIndexes) {
+    public void clearCache(DataContext.Core contextCore, int... storageIndexes) {
         exeWithLocks(mKeyMap.keySet(), () -> traverse(storage -> storage.onClearCache(contextCore), storageIndexes));
     }
 

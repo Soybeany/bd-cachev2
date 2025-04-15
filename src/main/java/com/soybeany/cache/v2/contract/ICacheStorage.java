@@ -6,6 +6,7 @@ import com.soybeany.cache.v2.exception.NoCacheException;
 import com.soybeany.cache.v2.model.DataContext;
 import com.soybeany.cache.v2.model.DataPack;
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -32,7 +33,7 @@ public interface ICacheStorage<Param, Data> {
      * @param contextCore 上下文核心
      */
     @SuppressWarnings("unused")
-    default void onInit(DataContext.Core<Param, Data> contextCore) {
+    default void onInit(DataContext.Core contextCore) {
         // 子类实现
     }
 
@@ -62,7 +63,7 @@ public interface ICacheStorage<Param, Data> {
      * @param dataPacks   待缓存的数据
      * @return 返回至上一级的数据
      */
-    default Map<DataContext.Param<Param>, DataPack<Data>> onBatchCacheData(DataContext.Core<Param, Data> contextCore, Map<DataContext.Param<Param>, DataPack<Data>> dataPacks) {
+    default Map<DataContext.Param<Param>, DataPack<Data>> onBatchCacheData(DataContext.Core contextCore, Map<DataContext.Param<Param>, DataPack<Data>> dataPacks) {
         Map<DataContext.Param<Param>, DataPack<Data>> result = new HashMap<>();
         dataPacks.forEach((k, v) -> result.put(k, onCacheData(new DataContext<>(contextCore, k), v)));
         return result;
@@ -78,7 +79,7 @@ public interface ICacheStorage<Param, Data> {
     /**
      * 失效全部缓存
      */
-    default void onInvalidAllCache(DataContext.Core<Param, Data> contextCore) {
+    default void onInvalidAllCache(DataContext.Core contextCore) {
         throw new BdCacheException("不支持此功能");
     }
 
@@ -92,7 +93,7 @@ public interface ICacheStorage<Param, Data> {
     /**
      * 清除全部缓存
      */
-    void onClearCache(DataContext.Core<Param, Data> contextCore);
+    void onClearCache(DataContext.Core contextCore);
 
     /**
      * 获取下次检查的时间戳
@@ -120,6 +121,18 @@ public interface ICacheStorage<Param, Data> {
      *
      * @return 数目
      */
-    int cachedDataCount(DataContext.Core<Param, Data> contextCore);
+    int cachedDataCount(DataContext.Core contextCore);
+
+    // ***********************内部类****************************
+
+    interface ILockSupport<L, BL> {
+        L onTryLock(String key, long lockWaitTime);
+
+        void onUnlock(L lock);
+
+        BL onBatchLock(Collection<String> keys, long lockWaitTime);
+
+        void onBatchUnlock(BL lock);
+    }
 
 }

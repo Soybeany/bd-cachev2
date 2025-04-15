@@ -52,12 +52,12 @@ public class DBSimulationStorage<Param, Data> extends StdStorage<Param, Data> {
     }
 
     @Override
-    public void onClearCache(DataContext.Core<Param, Data> contextCore) {
+    public void onClearCache(DataContext.Core contextCore) {
         map.clear();
     }
 
     @Override
-    public int cachedDataCount(DataContext.Core<Param, Data> contextCore) {
+    public int cachedDataCount(DataContext.Core contextCore) {
         return map.size();
     }
 

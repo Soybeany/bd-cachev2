@@ -29,7 +29,7 @@ public class LruMemTimerStorageTest {
     private final DataManager<String, String> dataManager = DataManager.Builder
             .get("LRU定时器存储器测试", datasource)
             .withCache(cacheStorage)
-            .logger(new ConsoleLogger<>())
+            .logger(new ConsoleLogger())
             .build();
 
     @BeforeClass
@@ -55,7 +55,7 @@ public class LruMemTimerStorageTest {
         // 检验
         Thread.sleep(300);
         try {
-            cacheStorage.onGetCache(new DataContext<>(new DataContext.Core<>(null, null, null), new DataContext.Param<>(null, key2, null)));
+            cacheStorage.onGetCache(new DataContext<>(new DataContext.Core(null, null, null), new DataContext.Param<>(null, key2, null)));
             throw new Exception("不允许还持有缓存");
         } catch (NoCacheException ignore) {
         }

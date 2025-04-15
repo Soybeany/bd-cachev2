@@ -12,20 +12,20 @@ import java.util.Objects;
  */
 public class DataContext<P> {
 
-    public final Core<P, ?> core;
+    public final Core core;
     public final Param<P> param;
 
-    public DataContext(Core<P, ?> core, Param<P> param) {
+    public DataContext(Core core, Param<P> param) {
         this.core = core;
         this.param = param;
     }
 
-    public static class Core<P, Data> {
+    public static class Core {
         public final String dataDesc;
         public final String storageId;
-        public final ILogger<P, Data> logger;
+        public final ILogger logger;
 
-        public Core(String dataDesc, String storageId, ILogger<P, Data> logger) {
+        public Core(String dataDesc, String storageId, ILogger logger) {
             this.dataDesc = dataDesc;
             this.storageId = storageId;
             this.logger = logger;

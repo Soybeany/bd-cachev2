@@ -31,7 +31,7 @@ public class SimpleDMTest {
     private final DataManager<String, String> dataManager = DataManager.Builder
             .get("简单测试", datasource)
             .withCache(lruStorage)
-            .logger(new ConsoleLogger<>())
+            .logger(new ConsoleLogger())
             .build();
 
     @Test
@@ -67,7 +67,7 @@ public class SimpleDMTest {
         // 新增key则移除最旧的key
         String key4 = "key4";
         dataManager.getDataPack(key4);
-        DataContext.Core<String, String> core = new DataContext.Core<>(null, null, null);
+        DataContext.Core core = new DataContext.Core(null, null, null);
         lruStorage.onGetCache(new DataContext<>(core, new DataContext.Param<>(null, key3, null)));
         try {
             lruStorage.onGetCache(new DataContext<>(core, new DataContext.Param<>(null, key2, null)));
@@ -130,7 +130,7 @@ public class SimpleDMTest {
     @Test
     public void noCacheStorageTest() {
         DataManager<String, String> manager = DataManager.Builder.get("无缓存测试", datasource)
-                .logger(new ConsoleLogger<>())
+                .logger(new ConsoleLogger())
                 .build();
         DataPack<String> pack = manager.getDataPack("key1");
         assert datasource.equals(pack.provider);

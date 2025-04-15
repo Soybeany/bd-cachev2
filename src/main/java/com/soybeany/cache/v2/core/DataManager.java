@@ -23,7 +23,7 @@ import java.util.function.Function;
 @SuppressWarnings({"UnusedReturnValue", "unused"})
 public class DataManager<Param, Data> {
 
-    private final DataContext.Core<Param, Data> contextCore;
+    private final DataContext.Core contextCore;
     private final IDatasource<Param, Data> defaultDatasource;
     private final IKeyConverter<Param> paramDescConverter;
     private final IKeyConverter<Param> paramKeyConverter;
@@ -31,7 +31,7 @@ public class DataManager<Param, Data> {
 
     // ***********************管理****************************
 
-    private DataManager(DataContext.Core<Param, Data> contextCore,
+    private DataManager(DataContext.Core contextCore,
                         IDatasource<Param, Data> defaultDatasource,
                         IKeyConverter<Param> paramDescConverter,
                         IKeyConverter<Param> paramKeyConverter,
@@ -43,7 +43,7 @@ public class DataManager<Param, Data> {
         this.storageManager = storageManager;
     }
 
-    public DataContext.Core<Param, Data> contextCore() {
+    public DataContext.Core contextCore() {
         return contextCore;
     }
 
@@ -274,7 +274,7 @@ public class DataManager<Param, Data> {
 
         private IKeyConverter<Param> paramDescConverter;
 
-        private ILogger<Param, Data> logger;
+        private ILogger logger;
 
         public static <Data> Builder<String, Data> get(String dataDesc, IDatasource<String, Data> datasource) {
             return new Builder<>(dataDesc, datasource, new IKeyConverter.Std());
@@ -313,7 +313,7 @@ public class DataManager<Param, Data> {
         /**
          * 若需要记录日志，则配置该logger
          */
-        public Builder<Param, Data> logger(ILogger<Param, Data> logger) {
+        public Builder<Param, Data> logger(ILogger logger) {
             this.logger = logger;
             return this;
         }
@@ -372,7 +372,7 @@ public class DataManager<Param, Data> {
          * 构建出用于使用的实例
          */
         public DataManager<Param, Data> build() {
-            DataContext.Core<Param, Data> core = new DataContext.Core<>(dataDesc, Optional.ofNullable(this.storageId).orElse(dataDesc), logger);
+            DataContext.Core core = new DataContext.Core(dataDesc, Optional.ofNullable(this.storageId).orElse(dataDesc), logger);
             storageManager.init(core);
             // 创建管理器实例
             return new DataManager<>(core, defaultDatasource, paramDescConverter, paramKeyConverter, storageManager);

@@ -15,7 +15,7 @@ import java.util.Objects;
  * @author Soybeany
  * @date 2020/12/8
  */
-public class StdLogger<Param, Data> implements ILogger<Param, Data> {
+public class StdLogger implements ILogger {
 
     private final ILogWriter mWriter;
 
@@ -24,7 +24,7 @@ public class StdLogger<Param, Data> implements ILogger<Param, Data> {
     }
 
     @Override
-    public void onGetData(DataContext<Param> context, DataPack<Data> pack, boolean needStore) {
+    public <Param, Data> void onGetData(DataContext<Param> context, DataPack<Data> pack, boolean needStore) {
         String from = getFrom(pack.provider, needStore);
         String dataDesc = getDataDesc(context.core);
         String paramDesc = getParamDesc(context.param);
@@ -36,7 +36,7 @@ public class StdLogger<Param, Data> implements ILogger<Param, Data> {
     }
 
     @Override
-    public void onCacheData(DataContext<Param> context, DataPack<Data> pack) {
+    public <Param, Data> void onCacheData(DataContext<Param> context, DataPack<Data> pack) {
         String dataDesc = getDataDesc(context.core);
         String paramDesc = getParamDesc(context.param);
         if (pack.norm()) {
@@ -47,7 +47,7 @@ public class StdLogger<Param, Data> implements ILogger<Param, Data> {
     }
 
     @Override
-    public void onBatchCacheData(DataContext.Core<Param, Data> contextCore, Map<DataContext.Param<Param>, DataPack<Data>> dataPacks) {
+    public <Param, Data> void onBatchCacheData(DataContext.Core contextCore, Map<DataContext.Param<Param>, DataPack<Data>> dataPacks) {
         String dataDesc = getDataDesc(contextCore);
         List<String> dataList = new ArrayList<>();
         List<String> exceptionList = new ArrayList<>();
@@ -67,37 +67,37 @@ public class StdLogger<Param, Data> implements ILogger<Param, Data> {
     }
 
     @Override
-    public void onInvalidCache(DataContext<Param> context, int... storageIndexes) {
+    public <Param> void onInvalidCache(DataContext<Param> context, int... storageIndexes) {
         mWriter.onWriteInfo("“" + getDataDesc(context.core) + "”失效了" + getIndexMsg(storageIndexes) + "中“" + getParamDesc(context.param) + "”的缓存");
     }
 
     @Override
-    public void onInvalidAllCache(DataContext.Core<Param, Data> core, int... storageIndexes) {
+    public void onInvalidAllCache(DataContext.Core core, int... storageIndexes) {
         mWriter.onWriteInfo("“" + core.dataDesc + "”失效了" + getIndexMsg(storageIndexes) + "的缓存");
     }
 
     @Override
-    public void onRemoveCache(DataContext<Param> context, int... storageIndexes) {
+    public <Param> void onRemoveCache(DataContext<Param> context, int... storageIndexes) {
         mWriter.onWriteInfo("“" + getDataDesc(context.core) + "”移除了" + getIndexMsg(storageIndexes) + "中“" + getParamDesc(context.param) + "”的缓存");
     }
 
     @Override
-    public void onRenewExpiredCache(DataContext<Param> context, Object provider) {
+    public <Param> void onRenewExpiredCache(DataContext<Param> context, Object provider) {
         mWriter.onWriteInfo("“" + getDataDesc(context.core) + "”在“" + getFrom(provider, true) + "”续期了“" + getParamDesc(context.param) + "”的缓存");
     }
 
     @Override
-    public void onClearCache(DataContext.Core<Param, Data> core, int... storageIndexes) {
+    public void onClearCache(DataContext.Core core, int... storageIndexes) {
         mWriter.onWriteInfo("“" + core.dataDesc + "”清空了" + getIndexMsg(storageIndexes) + "的缓存");
     }
 
     @Override
-    public void onContainCache(DataContext<Param> context, boolean exist) {
+    public <Param> void onContainCache(DataContext<Param> context, boolean exist) {
         mWriter.onWriteInfo("“" + getDataDesc(context.core) + "”" + (exist ? "存在" : "没有") + "“" + getParamDesc(context.param) + "”的缓存");
     }
 
     @Override
-    public void onCheckCache(DataContext<Param> context, boolean needUpdate) {
+    public <Param> void onCheckCache(DataContext<Param> context, boolean needUpdate) {
         mWriter.onWriteInfo("“" + getDataDesc(context.core) + "”" + (needUpdate ? "需要" : "无需") + "更新“" + getParamDesc(context.param) + "”的缓存");
     }
 
@@ -110,7 +110,7 @@ public class StdLogger<Param, Data> implements ILogger<Param, Data> {
         return "其它来源(" + provider + ")";
     }
 
-    private String getDataDesc(DataContext.Core<Param, ?> contextCore) {
+    private String getDataDesc(DataContext.Core contextCore) {
         String desc = contextCore.dataDesc;
         if (!Objects.equals(contextCore.dataDesc, contextCore.storageId)) {
             desc += "(" + contextCore.storageId + ")";
@@ -118,7 +118,7 @@ public class StdLogger<Param, Data> implements ILogger<Param, Data> {
         return desc;
     }
 
-    private String getParamDesc(DataContext.Param<Param> contextParam) {
+    private <Param> String getParamDesc(DataContext.Param<Param> contextParam) {
         String desc = contextParam.paramDesc;
         if (!Objects.equals(contextParam.paramDesc, contextParam.paramKey)) {
             desc += "(" + contextParam.paramKey + ")";
@@ -126,7 +126,7 @@ public class StdLogger<Param, Data> implements ILogger<Param, Data> {
         return desc;
     }
 
-    private String getExceptionMsg(DataPack<Data> pack) {
+    private <Data> String getExceptionMsg(DataPack<Data> pack) {
         Exception exception = pack.dataCore.exception;
         return exception.getClass().getSimpleName() + " - " + exception.getMessage();
     }

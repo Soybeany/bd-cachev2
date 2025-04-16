@@ -1,8 +1,8 @@
 package com.soybeany.cache.v2.dm;
 
 import com.soybeany.cache.v2.component.DBSimulationStorage;
-import com.soybeany.cache.v2.contract.ICacheStorage;
-import com.soybeany.cache.v2.contract.IDatasource;
+import com.soybeany.cache.v2.contract.frame.ICacheStorage;
+import com.soybeany.cache.v2.contract.user.IDatasource;
 import com.soybeany.cache.v2.core.DataManager;
 import com.soybeany.cache.v2.log.ConsoleLogger;
 import com.soybeany.cache.v2.model.DataPack;

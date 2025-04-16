@@ -1,10 +1,11 @@
-package com.soybeany.cache.v2.contract;
+package com.soybeany.cache.v2.contract.frame;
 
 
 import com.soybeany.cache.v2.exception.BdCacheException;
 import com.soybeany.cache.v2.exception.NoCacheException;
 import com.soybeany.cache.v2.model.DataContext;
 import com.soybeany.cache.v2.model.DataPack;
+import com.soybeany.cache.v2.model.DataParam;
 
 import java.util.Collection;
 import java.util.HashMap;
@@ -30,10 +31,10 @@ public interface ICacheStorage<Param, Data> {
     /**
      * 初始化时的回调
      *
-     * @param contextCore 上下文核心
+     * @param context 上下文
      */
     @SuppressWarnings("unused")
-    default void onInit(DataContext.Core contextCore) {
+    default void onInit(DataContext context) {
         // 子类实现
     }
 
@@ -42,70 +43,65 @@ public interface ICacheStorage<Param, Data> {
     /**
      * 获取缓存
      *
-     * @param context 上下文，含有当前环境的一些信息
+     * @param param 入参信息
      * @return 数据
      */
-    DataPack<Data> onGetCache(DataContext<Param> context) throws NoCacheException;
+    DataPack<Data> onGetCache(DataParam<Param> param) throws NoCacheException;
 
     /**
      * 缓存数据
      *
-     * @param context  上下文，含有当前环境的一些信息
+     * @param param    入参信息
      * @param dataPack 待缓存的数据
      * @return 返回至上一级的数据
      */
-    DataPack<Data> onCacheData(DataContext<Param> context, DataPack<Data> dataPack);
+    DataPack<Data> onCacheData(DataParam<Param> param, DataPack<Data> dataPack);
 
     /**
      * 批量缓存数据
      *
-     * @param contextCore 上下文核心，含有当前环境的一些固定信息
-     * @param dataPacks   待缓存的数据
+     * @param dataPacks 待缓存的数据
      * @return 返回至上一级的数据
      */
-    default Map<DataContext.Param<Param>, DataPack<Data>> onBatchCacheData(DataContext.Core contextCore, Map<DataContext.Param<Param>, DataPack<Data>> dataPacks) {
-        Map<DataContext.Param<Param>, DataPack<Data>> result = new HashMap<>();
-        dataPacks.forEach((k, v) -> result.put(k, onCacheData(new DataContext<>(contextCore, k), v)));
+    default Map<DataParam<Param>, DataPack<Data>> onBatchCacheData(Map<DataParam<Param>, DataPack<Data>> dataPacks) {
+        Map<DataParam<Param>, DataPack<Data>> result = new HashMap<>();
+        dataPacks.forEach((k, v) -> result.put(k, onCacheData(k, v)));
         return result;
     }
 
     /**
      * 失效指定的缓存
-     *
-     * @param context 上下文，含有当前环境的一些信息
      */
-    void onInvalidCache(DataContext<Param> context);
+    void onInvalidCache(DataParam<Param> param);
 
     /**
      * 失效全部缓存
      */
-    default void onInvalidAllCache(DataContext.Core contextCore) {
+    default void onInvalidAllCache() {
         throw new BdCacheException("不支持此功能");
     }
 
     /**
      * 移除指定的缓存
-     *
-     * @param context 上下文，含有当前环境的一些信息
      */
-    void onRemoveCache(DataContext<Param> context);
+    void onRemoveCache(DataParam<Param> param);
 
     /**
      * 清除全部缓存
      */
-    void onClearCache(DataContext.Core contextCore);
+    void onClearCache();
 
     /**
      * 获取下次检查的时间戳
      */
-    default long getNextCheckStamp(DataContext<Param> context) {
+    default long getNextCheckStamp(DataParam<Param> param) {
         throw new BdCacheException("不支持此功能");
     }
 
     /**
      * 设置下次检查的时间戳
      */
-    default void setNextCheckStamp(DataContext<Param> context, long stamp) {
+    default void setNextCheckStamp(DataParam<Param> param, long stamp) {
         throw new BdCacheException("不支持此功能");
     }
 
@@ -121,7 +117,7 @@ public interface ICacheStorage<Param, Data> {
      *
      * @return 数目
      */
-    int cachedDataCount(DataContext.Core contextCore);
+    int cachedDataCount();
 
     // ***********************内部类****************************
 

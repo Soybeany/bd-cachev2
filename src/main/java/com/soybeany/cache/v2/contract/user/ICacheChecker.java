@@ -1,4 +1,4 @@
-package com.soybeany.cache.v2.contract;
+package com.soybeany.cache.v2.contract.user;
 
 import com.soybeany.cache.v2.model.DataPack;
 

@@ -1,13 +1,13 @@
 package com.soybeany.cache.v2.dm;
 
-import com.soybeany.cache.v2.contract.ICacheStorage;
-import com.soybeany.cache.v2.contract.IDatasource;
+import com.soybeany.cache.v2.contract.frame.ICacheStorage;
+import com.soybeany.cache.v2.contract.user.IDatasource;
 import com.soybeany.cache.v2.core.DataManager;
 import com.soybeany.cache.v2.exception.NoCacheException;
 import com.soybeany.cache.v2.exception.NoDataSourceException;
 import com.soybeany.cache.v2.log.ConsoleLogger;
-import com.soybeany.cache.v2.model.DataContext;
 import com.soybeany.cache.v2.model.DataPack;
+import com.soybeany.cache.v2.model.DataParam;
 import com.soybeany.cache.v2.storage.LruMemCacheStorage;
 import org.junit.Test;
 
@@ -67,10 +67,9 @@ public class SimpleDMTest {
         // 新增key则移除最旧的key
         String key4 = "key4";
         dataManager.getDataPack(key4);
-        DataContext.Core core = new DataContext.Core(null, null, null);
-        lruStorage.onGetCache(new DataContext<>(core, new DataContext.Param<>(null, key3, null)));
+        lruStorage.onGetCache(new DataParam<>(null, key3, null));
         try {
-            lruStorage.onGetCache(new DataContext<>(core, new DataContext.Param<>(null, key2, null)));
+            lruStorage.onGetCache(new DataParam<>(null, key2, null));
             throw new Exception("不允许还持有缓存");
         } catch (NoCacheException e) {
             System.out.println("“" + key2 + "”的缓存已移除");

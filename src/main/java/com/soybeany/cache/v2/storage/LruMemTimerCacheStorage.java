@@ -1,9 +1,9 @@
 package com.soybeany.cache.v2.storage;
 
-import com.soybeany.cache.v2.contract.ICacheStorage;
+import com.soybeany.cache.v2.contract.frame.ICacheStorage;
 import com.soybeany.cache.v2.exception.NoCacheException;
 import com.soybeany.cache.v2.model.CacheEntity;
-import com.soybeany.cache.v2.model.DataContext;
+import com.soybeany.cache.v2.model.DataParam;
 import com.soybeany.util.file.BdFileUtils;
 
 import java.util.HashMap;
@@ -48,38 +48,38 @@ public class LruMemTimerCacheStorage<Param, Data> extends LruMemCacheStorage<Par
     }
 
     @Override
-    protected synchronized CacheEntity<Data> onLoadCacheEntity(DataContext<Param> context, String key) throws NoCacheException {
-        Task task = taskMap.get(key);
+    protected synchronized CacheEntity<Data> onLoadCacheEntity(DataParam<Param> param, String storageKey) throws NoCacheException {
+        Task task = taskMap.get(storageKey);
         if (null == task) {
             throw new NoCacheException();
         }
-        task.uid = scheduleTask(context, key, task.pTtl);
-        return super.onLoadCacheEntity(context, key);
+        task.uid = scheduleTask(param, storageKey, task.pTtl);
+        return super.onLoadCacheEntity(param, storageKey);
     }
 
     @Override
-    protected synchronized CacheEntity<Data> onSaveCacheEntity(DataContext<Param> context, String key, CacheEntity<Data> entity) {
+    protected synchronized CacheEntity<Data> onSaveCacheEntity(DataParam<Param> param, String storageKey, CacheEntity<Data> entity) {
         long pTtl = entity.pExpireAt - onGetCurTimestamp();
-        String uid = scheduleTask(context, key, pTtl);
-        taskMap.put(key, new Task(uid, pTtl));
-        return super.onSaveCacheEntity(context, key, entity);
+        String uid = scheduleTask(param, storageKey, pTtl);
+        taskMap.put(storageKey, new Task(uid, pTtl));
+        return super.onSaveCacheEntity(param, storageKey, entity);
     }
 
     // ********************内部方法********************
 
-    private String scheduleTask(DataContext<Param> context, String key, long pTtl) {
+    private String scheduleTask(DataParam<Param> param, String key, long pTtl) {
         String uid = BdFileUtils.getUuid();
-        SERVICE.schedule(() -> removeData(context, key, uid), pTtl, TimeUnit.MILLISECONDS);
+        SERVICE.schedule(() -> removeData(param, key, uid), pTtl, TimeUnit.MILLISECONDS);
         return uid;
     }
 
-    private synchronized void removeData(DataContext<Param> context, String key, String uid) {
+    private synchronized void removeData(DataParam<Param> param, String key, String uid) {
         Task task = taskMap.get(key);
         if (null == task || !uid.equals(task.uid)) {
             return;
         }
         taskMap.remove(key);
-        super.onRemoveCacheEntity(context, key);
+        super.onRemoveCacheEntity(param, key);
     }
 
     // ********************内部类********************

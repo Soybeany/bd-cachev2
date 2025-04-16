@@ -1,4 +1,4 @@
-package com.soybeany.cache.v2.contract;
+package com.soybeany.cache.v2.contract.user;
 
 /**
  * key转换器

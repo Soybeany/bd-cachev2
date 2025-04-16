@@ -1,9 +1,9 @@
 package com.soybeany.cache.v2.storage;
 
-import com.soybeany.cache.v2.contract.ICacheStorage;
+import com.soybeany.cache.v2.contract.frame.ICacheStorage;
 import com.soybeany.cache.v2.exception.NoCacheException;
 import com.soybeany.cache.v2.model.CacheEntity;
-import com.soybeany.cache.v2.model.DataContext;
+import com.soybeany.cache.v2.model.DataParam;
 
 import java.lang.ref.Reference;
 import java.lang.ref.SoftReference;
@@ -34,24 +34,24 @@ public class LruMemCacheStorage<Param, Data> extends StdStorage<Param, Data> {
     }
 
     @Override
-    public synchronized void onInvalidAllCache(DataContext.Core contextCore) {
+    public synchronized void onInvalidAllCache() {
         Set<String> keys = new HashSet<>(mapStorage.getMap().keySet());
         keys.forEach(key -> mapStorage.onLoad(key).ifPresent(entity -> mapStorage.onSave(key, new CacheEntity<>(entity.dataCore, 0))));
     }
 
     @Override
-    public synchronized void onClearCache(DataContext.Core contextCore) {
+    public synchronized void onClearCache() {
         mapStorage.getMap().clear();
     }
 
     @Override
-    public int cachedDataCount(DataContext.Core contextCore) {
+    public int cachedDataCount() {
         return mapStorage.getMap().size();
     }
 
     @Override
-    protected synchronized CacheEntity<Data> onLoadCacheEntity(DataContext<Param> context, String key) throws NoCacheException {
-        Optional<CacheEntity<Data>> entityOpt = mapStorage.onLoad(key);
+    protected synchronized CacheEntity<Data> onLoadCacheEntity(DataParam<Param> param, String storageKey) throws NoCacheException {
+        Optional<CacheEntity<Data>> entityOpt = mapStorage.onLoad(storageKey);
         if (!entityOpt.isPresent()) {
             throw new NoCacheException();
         }
@@ -59,14 +59,14 @@ public class LruMemCacheStorage<Param, Data> extends StdStorage<Param, Data> {
     }
 
     @Override
-    protected synchronized CacheEntity<Data> onSaveCacheEntity(DataContext<Param> context, String key, CacheEntity<Data> entity) {
-        mapStorage.onSave(key, entity);
+    protected synchronized CacheEntity<Data> onSaveCacheEntity(DataParam<Param> param, String storageKey, CacheEntity<Data> entity) {
+        mapStorage.onSave(storageKey, entity);
         return entity;
     }
 
     @Override
-    protected void onRemoveCacheEntity(DataContext<Param> context, String key) {
-        mapStorage.getMap().remove(key);
+    protected void onRemoveCacheEntity(DataParam<Param> param, String storageKey) {
+        mapStorage.getMap().remove(storageKey);
     }
 
     @Override
@@ -75,15 +75,15 @@ public class LruMemCacheStorage<Param, Data> extends StdStorage<Param, Data> {
     }
 
     @Override
-    public long getNextCheckStamp(DataContext<Param> context) {
-        return mapStorage.onLoad(getKey(context))
+    public long getNextCheckStamp(DataParam<Param> param) {
+        return mapStorage.onLoad(getStorageKey(param))
                 .map(entity -> entity.pNextCheckAt)
                 .orElse(0L);
     }
 
     @Override
-    public void setNextCheckStamp(DataContext<Param> context, long stamp) {
-        mapStorage.onLoad(getKey(context))
+    public void setNextCheckStamp(DataParam<Param> param, long stamp) {
+        mapStorage.onLoad(getStorageKey(param))
                 .ifPresent(entity -> entity.pNextCheckAt = stamp);
     }
 

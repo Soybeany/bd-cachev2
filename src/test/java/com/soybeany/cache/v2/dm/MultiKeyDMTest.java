@@ -1,10 +1,10 @@
 package com.soybeany.cache.v2.dm;
 
-import com.soybeany.cache.v2.contract.ICacheStorage;
+import com.soybeany.cache.v2.contract.frame.ICacheStorage;
 import com.soybeany.cache.v2.core.DataManager;
 import com.soybeany.cache.v2.log.ConsoleLogger;
-import com.soybeany.cache.v2.model.DataContext;
 import com.soybeany.cache.v2.model.DataPack;
+import com.soybeany.cache.v2.model.DataParam;
 import com.soybeany.cache.v2.storage.LruMemCacheStorage;
 import org.junit.Test;
 
@@ -59,14 +59,14 @@ public class MultiKeyDMTest {
         }
 
         @Override
-        public DataPack<Data> onCacheData(DataContext<Param> context, DataPack<Data> dataPack) {
-            System.out.println("存数据:" + context.param.paramKey);
+        public DataPack<Data> onCacheData(DataParam<Param> param, DataPack<Data> dataPack) {
+            System.out.println("存数据:" + param.paramKey);
             try {
                 Thread.sleep(500);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
-            return super.onCacheData(context, dataPack);
+            return super.onCacheData(param, dataPack);
         }
     }
 

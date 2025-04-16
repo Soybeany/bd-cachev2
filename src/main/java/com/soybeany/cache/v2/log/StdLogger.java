@@ -1,10 +1,11 @@
 package com.soybeany.cache.v2.log;
 
-import com.soybeany.cache.v2.contract.ICacheStorage;
-import com.soybeany.cache.v2.contract.IDatasource;
-import com.soybeany.cache.v2.contract.ILogger;
+import com.soybeany.cache.v2.contract.frame.ICacheStorage;
+import com.soybeany.cache.v2.contract.frame.ILogger;
+import com.soybeany.cache.v2.contract.user.IDatasource;
 import com.soybeany.cache.v2.model.DataContext;
 import com.soybeany.cache.v2.model.DataPack;
+import com.soybeany.cache.v2.model.DataParam;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -18,16 +19,22 @@ import java.util.Objects;
 public class StdLogger implements ILogger {
 
     private final ILogWriter mWriter;
+    private DataContext context;
 
     public StdLogger(ILogWriter writer) {
         mWriter = writer;
     }
 
     @Override
-    public <Param, Data> void onGetData(DataContext<Param> context, DataPack<Data> pack, boolean needStore) {
+    public void onInit(DataContext context) {
+        this.context = context;
+    }
+
+    @Override
+    public <Param, Data> void onGetData(DataParam<Param> param, DataPack<Data> pack, boolean needStore) {
         String from = getFrom(pack.provider, needStore);
-        String dataDesc = getDataDesc(context.core);
-        String paramDesc = getParamDesc(context.param);
+        String dataDesc = getDataDesc();
+        String paramDesc = getParamDesc(param);
         if (pack.norm()) {
             mWriter.onWriteInfo("“" + dataDesc + "”从“" + from + "”获取了“" + paramDesc + "”的数据");
         } else {
@@ -36,9 +43,9 @@ public class StdLogger implements ILogger {
     }
 
     @Override
-    public <Param, Data> void onCacheData(DataContext<Param> context, DataPack<Data> pack) {
-        String dataDesc = getDataDesc(context.core);
-        String paramDesc = getParamDesc(context.param);
+    public <Param, Data> void onCacheData(DataParam<Param> param, DataPack<Data> pack) {
+        String dataDesc = getDataDesc();
+        String paramDesc = getParamDesc(param);
         if (pack.norm()) {
             mWriter.onWriteInfo("“" + dataDesc + "”缓存了“" + paramDesc + "”的数据");
         } else {
@@ -47,8 +54,8 @@ public class StdLogger implements ILogger {
     }
 
     @Override
-    public <Param, Data> void onBatchCacheData(DataContext.Core contextCore, Map<DataContext.Param<Param>, DataPack<Data>> dataPacks) {
-        String dataDesc = getDataDesc(contextCore);
+    public <Param, Data> void onBatchCacheData(Map<DataParam<Param>, DataPack<Data>> dataPacks) {
+        String dataDesc = getDataDesc();
         List<String> dataList = new ArrayList<>();
         List<String> exceptionList = new ArrayList<>();
         // 分类存储
@@ -67,38 +74,38 @@ public class StdLogger implements ILogger {
     }
 
     @Override
-    public <Param> void onInvalidCache(DataContext<Param> context, int... storageIndexes) {
-        mWriter.onWriteInfo("“" + getDataDesc(context.core) + "”失效了" + getIndexMsg(storageIndexes) + "中“" + getParamDesc(context.param) + "”的缓存");
+    public <Param> void onInvalidCache(DataParam<Param> param, int... storageIndexes) {
+        mWriter.onWriteInfo("“" + getDataDesc() + "”失效了" + getIndexMsg(storageIndexes) + "中“" + getParamDesc(param) + "”的缓存");
     }
 
     @Override
-    public void onInvalidAllCache(DataContext.Core core, int... storageIndexes) {
-        mWriter.onWriteInfo("“" + core.dataDesc + "”失效了" + getIndexMsg(storageIndexes) + "的缓存");
+    public void onInvalidAllCache(int... storageIndexes) {
+        mWriter.onWriteInfo("“" + context.dataDesc + "”失效了" + getIndexMsg(storageIndexes) + "的缓存");
     }
 
     @Override
-    public <Param> void onRemoveCache(DataContext<Param> context, int... storageIndexes) {
-        mWriter.onWriteInfo("“" + getDataDesc(context.core) + "”移除了" + getIndexMsg(storageIndexes) + "中“" + getParamDesc(context.param) + "”的缓存");
+    public <Param> void onRemoveCache(DataParam<Param> param, int... storageIndexes) {
+        mWriter.onWriteInfo("“" + getDataDesc() + "”移除了" + getIndexMsg(storageIndexes) + "中“" + getParamDesc(param) + "”的缓存");
     }
 
     @Override
-    public <Param> void onRenewExpiredCache(DataContext<Param> context, Object provider) {
-        mWriter.onWriteInfo("“" + getDataDesc(context.core) + "”在“" + getFrom(provider, true) + "”续期了“" + getParamDesc(context.param) + "”的缓存");
+    public <Param> void onRenewExpiredCache(DataParam<Param> param, Object provider) {
+        mWriter.onWriteInfo("“" + getDataDesc() + "”在“" + getFrom(provider, true) + "”续期了“" + getParamDesc(param) + "”的缓存");
     }
 
     @Override
-    public void onClearCache(DataContext.Core core, int... storageIndexes) {
-        mWriter.onWriteInfo("“" + core.dataDesc + "”清空了" + getIndexMsg(storageIndexes) + "的缓存");
+    public void onClearCache(int... storageIndexes) {
+        mWriter.onWriteInfo("“" + context.dataDesc + "”清空了" + getIndexMsg(storageIndexes) + "的缓存");
     }
 
     @Override
-    public <Param> void onContainCache(DataContext<Param> context, boolean exist) {
-        mWriter.onWriteInfo("“" + getDataDesc(context.core) + "”" + (exist ? "存在" : "没有") + "“" + getParamDesc(context.param) + "”的缓存");
+    public <Param> void onContainCache(DataParam<Param> param, boolean exist) {
+        mWriter.onWriteInfo("“" + getDataDesc() + "”" + (exist ? "存在" : "没有") + "“" + getParamDesc(param) + "”的缓存");
     }
 
     @Override
-    public <Param> void onCheckCache(DataContext<Param> context, boolean needUpdate) {
-        mWriter.onWriteInfo("“" + getDataDesc(context.core) + "”" + (needUpdate ? "需要" : "无需") + "更新“" + getParamDesc(context.param) + "”的缓存");
+    public <Param> void onCheckCache(DataParam<Param> param, boolean needUpdate) {
+        mWriter.onWriteInfo("“" + getDataDesc() + "”" + (needUpdate ? "需要" : "无需") + "更新“" + getParamDesc(param) + "”的缓存");
     }
 
     private String getFrom(Object provider, boolean needStore) {
@@ -110,18 +117,18 @@ public class StdLogger implements ILogger {
         return "其它来源(" + provider + ")";
     }
 
-    private String getDataDesc(DataContext.Core contextCore) {
-        String desc = contextCore.dataDesc;
-        if (!Objects.equals(contextCore.dataDesc, contextCore.storageId)) {
-            desc += "(" + contextCore.storageId + ")";
+    private String getDataDesc() {
+        String desc = context.dataDesc;
+        if (!Objects.equals(context.dataDesc, context.storageId)) {
+            desc += "(" + context.storageId + ")";
         }
         return desc;
     }
 
-    private <Param> String getParamDesc(DataContext.Param<Param> contextParam) {
-        String desc = contextParam.paramDesc;
-        if (!Objects.equals(contextParam.paramDesc, contextParam.paramKey)) {
-            desc += "(" + contextParam.paramKey + ")";
+    private <Param> String getParamDesc(DataParam<Param> dataParam) {
+        String desc = dataParam.paramDesc;
+        if (!Objects.equals(dataParam.paramDesc, dataParam.paramKey)) {
+            desc += "(" + dataParam.paramKey + ")";
         }
         return desc;
     }

@@ -1,11 +1,12 @@
 package com.soybeany.cache.v2.storage;
 
-import com.soybeany.cache.v2.contract.ICacheStorage;
-import com.soybeany.cache.v2.contract.IKeyConverter;
+import com.soybeany.cache.v2.contract.frame.ICacheStorage;
+import com.soybeany.cache.v2.contract.user.IKeyConverter;
 import com.soybeany.cache.v2.exception.NoCacheException;
 import com.soybeany.cache.v2.model.CacheEntity;
 import com.soybeany.cache.v2.model.DataContext;
 import com.soybeany.cache.v2.model.DataPack;
+import com.soybeany.cache.v2.model.DataParam;
 
 /**
  * @author Soybeany
@@ -13,9 +14,11 @@ import com.soybeany.cache.v2.model.DataPack;
  */
 public abstract class StdStorage<Param, Data> implements ICacheStorage<Param, Data> {
 
-    private final IKeyConverter<String> keyConverter = onSetupKeyConverter();
+    private final IKeyConverter<String> storageKeyConverter = onSetupStorageKeyConverter();
     protected final long pTtl;
     protected final long pTtlErr;
+
+    private DataContext context;
     private boolean enableRenewExpiredCache;
 
     public StdStorage(long pTtl, long pTtlErr) {
@@ -24,14 +27,19 @@ public abstract class StdStorage<Param, Data> implements ICacheStorage<Param, Da
     }
 
     @Override
-    public DataPack<Data> onGetCache(DataContext<Param> context) throws NoCacheException {
-        String key = getKey(context);
-        CacheEntity<Data> cacheEntity = onLoadCacheEntity(context, key);
+    public void onInit(DataContext context) {
+        this.context = context;
+    }
+
+    @Override
+    public DataPack<Data> onGetCache(DataParam<Param> param) throws NoCacheException {
+        String key = getStorageKey(param);
+        CacheEntity<Data> cacheEntity = onLoadCacheEntity(param, key);
         long curTimestamp = onGetCurTimestamp();
         // 若缓存中的数据过期，则移除数据后抛出无数据异常
         if (cacheEntity.isExpired(curTimestamp)) {
             if (!enableRenewExpiredCache) {
-                onRemoveCacheEntity(context, key);
+                onRemoveCacheEntity(param, key);
             }
             throw new NoCacheException();
         }
@@ -40,14 +48,14 @@ public abstract class StdStorage<Param, Data> implements ICacheStorage<Param, Da
     }
 
     @Override
-    public DataPack<Data> onCacheData(DataContext<Param> context, DataPack<Data> dataPack) {
-        String key = getKey(context);
+    public DataPack<Data> onCacheData(DataParam<Param> param, DataPack<Data> dataPack) {
+        String key = getStorageKey(param);
         // 若不支持缓存刷新，则不作额外处理
         if (dataPack.norm() || !enableRenewExpiredCache) {
-            return simpleCacheData(context, key, dataPack);
+            return simpleCacheData(param, key, dataPack);
         }
         try {
-            CacheEntity<Data> cacheEntity = onLoadCacheEntity(context, key);
+            CacheEntity<Data> cacheEntity = onLoadCacheEntity(param, key);
             // 若缓存依旧可用，则直接使用
             long curTimestamp = onGetCurTimestamp();
             if (!cacheEntity.isExpired(curTimestamp)) {
@@ -59,30 +67,30 @@ public abstract class StdStorage<Param, Data> implements ICacheStorage<Param, Da
             }
             // 重新持久化一个使用新过期时间的info
             CacheEntity<Data> newCacheEntity = new CacheEntity<>(cacheEntity.dataCore, curTimestamp + pTtlErr);
-            onSaveCacheEntity(context, key, newCacheEntity);
-            if (null != context.core.logger) {
-                context.core.logger.onRenewExpiredCache(context, this);
+            onSaveCacheEntity(param, key, newCacheEntity);
+            if (null != context.logger) {
+                context.logger.onRenewExpiredCache(param, this);
             }
             return CacheEntity.toDataPack(newCacheEntity, this, curTimestamp);
         } catch (NoCacheException e) {
             // 没有本地缓存，按常规处理
-            return simpleCacheData(context, key, dataPack);
+            return simpleCacheData(param, key, dataPack);
         }
     }
 
     @Override
-    public void onInvalidCache(DataContext<Param> context) {
-        String key = getKey(context);
+    public void onInvalidCache(DataParam<Param> param) {
+        String key = getStorageKey(param);
         try {
-            CacheEntity<Data> cacheEntity = onLoadCacheEntity(context, key);
-            onSaveCacheEntity(context, key, new CacheEntity<>(cacheEntity.dataCore, 0));
+            CacheEntity<Data> cacheEntity = onLoadCacheEntity(param, key);
+            onSaveCacheEntity(param, key, new CacheEntity<>(cacheEntity.dataCore, 0));
         } catch (NoCacheException ignore) {
         }
     }
 
     @Override
-    public void onRemoveCache(DataContext<Param> context) {
-        onRemoveCacheEntity(context, getKey(context));
+    public void onRemoveCache(DataParam<Param> param) {
+        onRemoveCacheEntity(param, getStorageKey(param));
     }
 
     @Override
@@ -91,18 +99,17 @@ public abstract class StdStorage<Param, Data> implements ICacheStorage<Param, Da
     }
 
 
-
     // ***********************子类重写****************************
 
     /**
      * 允许子类重新定义读取/存储时的key
      */
-    protected IKeyConverter<String> onSetupKeyConverter() {
+    protected IKeyConverter<String> onSetupStorageKeyConverter() {
         return key -> key;
     }
 
-    protected String getKey(DataContext<Param> context) {
-        return keyConverter.getKey(context.param.paramKey);
+    protected String getStorageKey(DataParam<Param> param) {
+        return storageKeyConverter.getKey(param.paramKey);
     }
 
     protected DataPack<Data> onRewriteCacheData(CacheEntity<Data> cacheEntity, CacheEntity<Data> newCacheEntity, DataPack<Data> dataPack) {
@@ -112,19 +119,19 @@ public abstract class StdStorage<Param, Data> implements ICacheStorage<Param, Da
         return CacheEntity.toDataPack(newCacheEntity, this, onGetCurTimestamp());
     }
 
-    protected abstract CacheEntity<Data> onLoadCacheEntity(DataContext<Param> context, String key) throws NoCacheException;
+    protected abstract CacheEntity<Data> onLoadCacheEntity(DataParam<Param> param, String storageKey) throws NoCacheException;
 
-    protected abstract CacheEntity<Data> onSaveCacheEntity(DataContext<Param> context, String key, CacheEntity<Data> entity);
+    protected abstract CacheEntity<Data> onSaveCacheEntity(DataParam<Param> param, String storageKey, CacheEntity<Data> entity);
 
-    protected abstract void onRemoveCacheEntity(DataContext<Param> context, String key);
+    protected abstract void onRemoveCacheEntity(DataParam<Param> param, String storageKey);
 
     protected abstract long onGetCurTimestamp();
 
     // ***********************内部方法****************************
 
-    private DataPack<Data> simpleCacheData(DataContext<Param> context, String key, DataPack<Data> dataPack) {
+    private DataPack<Data> simpleCacheData(DataParam<Param> param, String storageKey, DataPack<Data> dataPack) {
         CacheEntity<Data> cacheEntity = CacheEntity.fromDataPack(dataPack, onGetCurTimestamp(), pTtl, pTtlErr);
-        CacheEntity<Data> newCacheEntity = onSaveCacheEntity(context, key, cacheEntity);
+        CacheEntity<Data> newCacheEntity = onSaveCacheEntity(param, storageKey, cacheEntity);
         return onRewriteCacheData(cacheEntity, newCacheEntity, dataPack);
     }
 

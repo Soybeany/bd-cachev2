@@ -1,6 +1,6 @@
 package com.soybeany.cache.v2.storage;
 
-import com.soybeany.cache.v2.contract.ICacheStorage;
+import com.soybeany.cache.v2.contract.frame.ICacheStorage;
 
 /**
  * @author Soybeany

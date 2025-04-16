@@ -1,12 +1,18 @@
 package com.soybeany.cache.v2.core;
 
 
-import com.soybeany.cache.v2.contract.*;
+import com.soybeany.cache.v2.contract.frame.ICacheStorage;
+import com.soybeany.cache.v2.contract.frame.ILogger;
+import com.soybeany.cache.v2.contract.user.ICacheChecker;
+import com.soybeany.cache.v2.contract.user.IDatasource;
+import com.soybeany.cache.v2.contract.user.IKeyConverter;
+import com.soybeany.cache.v2.contract.user.IOnInvalidListener;
 import com.soybeany.cache.v2.exception.BdCacheException;
 import com.soybeany.cache.v2.exception.NoDataSourceException;
 import com.soybeany.cache.v2.model.DataContext;
 import com.soybeany.cache.v2.model.DataCore;
 import com.soybeany.cache.v2.model.DataPack;
+import com.soybeany.cache.v2.model.DataParam;
 
 import java.util.HashMap;
 import java.util.List;
@@ -23,7 +29,7 @@ import java.util.function.Function;
 @SuppressWarnings({"UnusedReturnValue", "unused"})
 public class DataManager<Param, Data> {
 
-    private final DataContext.Core contextCore;
+    private final DataContext context;
     private final IDatasource<Param, Data> defaultDatasource;
     private final IKeyConverter<Param> paramDescConverter;
     private final IKeyConverter<Param> paramKeyConverter;
@@ -31,20 +37,20 @@ public class DataManager<Param, Data> {
 
     // ***********************管理****************************
 
-    private DataManager(DataContext.Core contextCore,
+    private DataManager(DataContext context,
                         IDatasource<Param, Data> defaultDatasource,
                         IKeyConverter<Param> paramDescConverter,
                         IKeyConverter<Param> paramKeyConverter,
                         StorageManager<Param, Data> storageManager) {
-        this.contextCore = contextCore;
+        this.context = context;
         this.defaultDatasource = defaultDatasource;
         this.paramDescConverter = paramDescConverter;
         this.paramKeyConverter = paramKeyConverter;
         this.storageManager = storageManager;
     }
 
-    public DataContext.Core contextCore() {
-        return contextCore;
+    public DataContext contextCore() {
+        return context;
     }
 
     public IDatasource<Param, Data> defaultDatasource() {
@@ -94,11 +100,11 @@ public class DataManager<Param, Data> {
      * 获得数据(数据包方式)
      */
     public DataPack<Data> getDataPack(Param param, IDatasource<Param, Data> datasource, boolean needStore) {
-        DataContext<Param> context = getNewDataContext(param);
-        DataPack<Data> pack = storageManager.getDataPack(context, datasource, needStore);
+        DataParam<Param> dataParam = getNewDataParam(param);
+        DataPack<Data> pack = storageManager.getDataPack(dataParam, datasource, needStore);
         // 记录日志
-        if (null != contextCore.logger) {
-            contextCore.logger.onGetData(context, pack, needStore);
+        if (null != this.context.logger) {
+            this.context.logger.onGetData(dataParam, pack, needStore);
         }
         return pack;
     }
@@ -109,8 +115,8 @@ public class DataManager<Param, Data> {
     public DataPack<Data> getDataPackDirectly(Param param) {
         DataPack<Data> pack = StorageManager.getDataDirectly(this, param, defaultDatasource);
         // 记录日志
-        if (null != contextCore.logger) {
-            contextCore.logger.onGetData(getNewDataContext(param), pack, false);
+        if (null != context.logger) {
+            context.logger.onGetData(getNewDataParam(param), pack, false);
         }
         return pack;
     }
@@ -154,11 +160,11 @@ public class DataManager<Param, Data> {
      * 失效指定存储器中指定key的缓存
      */
     public void invalidCache(Param param, int... storageIndexes) {
-        DataContext<Param> context = getNewDataContext(param);
-        storageManager.invalidCache(context, storageIndexes);
+        DataParam<Param> dataParam = getNewDataParam(param);
+        storageManager.invalidCache(dataParam, storageIndexes);
         // 记录日志
-        if (null != contextCore.logger) {
-            contextCore.logger.onInvalidCache(context, storageIndexes);
+        if (null != this.context.logger) {
+            this.context.logger.onInvalidCache(dataParam, storageIndexes);
         }
     }
 
@@ -166,10 +172,10 @@ public class DataManager<Param, Data> {
      * 失效指定存储器中全部缓存
      */
     public void invalidAllCache(int... storageIndexes) {
-        storageManager.invalidAllCache(contextCore, storageIndexes);
+        storageManager.invalidAllCache(storageIndexes);
         // 记录日志
-        if (null != contextCore.logger) {
-            contextCore.logger.onInvalidAllCache(contextCore, storageIndexes);
+        if (null != context.logger) {
+            context.logger.onInvalidAllCache(storageIndexes);
         }
     }
 
@@ -177,11 +183,11 @@ public class DataManager<Param, Data> {
      * 移除指定存储器中指定key的缓存
      */
     public void removeCache(Param param, int... storageIndexes) {
-        DataContext<Param> context = getNewDataContext(param);
-        storageManager.removeCache(context, storageIndexes);
+        DataParam<Param> dataParam = getNewDataParam(param);
+        storageManager.removeCache(dataParam, storageIndexes);
         // 记录日志
-        if (null != contextCore.logger) {
-            contextCore.logger.onRemoveCache(context, storageIndexes);
+        if (null != this.context.logger) {
+            this.context.logger.onRemoveCache(dataParam, storageIndexes);
         }
     }
 
@@ -189,10 +195,10 @@ public class DataManager<Param, Data> {
      * 清除指定存储器中全部的缓存
      */
     public void clearCache(int... storageIndexes) {
-        storageManager.clearCache(contextCore, storageIndexes);
+        storageManager.clearCache(storageIndexes);
         // 记录日志
-        if (null != contextCore.logger) {
-            contextCore.logger.onClearCache(contextCore, storageIndexes);
+        if (null != context.logger) {
+            context.logger.onClearCache(storageIndexes);
         }
     }
 
@@ -200,16 +206,16 @@ public class DataManager<Param, Data> {
      * 指定的缓存是否存在
      */
     public boolean containCache(Param param) {
-        DataContext<Param> context = getNewDataContext(param);
+        DataParam<Param> dataParam = getNewDataParam(param);
         boolean exist = true;
         try {
-            storageManager.getDataPack(context, null, false).getData();
+            storageManager.getDataPack(dataParam, null, false).getData();
         } catch (NoDataSourceException e) {
             exist = false;
         }
         // 记录日志
-        if (null != contextCore.logger) {
-            contextCore.logger.onContainCache(context, exist);
+        if (null != this.context.logger) {
+            this.context.logger.onContainCache(dataParam, exist);
         }
         return exist;
     }
@@ -220,44 +226,40 @@ public class DataManager<Param, Data> {
      * @return 缓存是否需要更新
      */
     public boolean checkCache(Param param, ICacheChecker<Param, Data> checker) {
-        DataContext<Param> context = getNewDataContext(param);
-        return storageManager.checkCache(context, checker);
+        DataParam<Param> dataParam = getNewDataParam(param);
+        return storageManager.checkCache(dataParam, checker);
     }
 
     // ********************内部方法********************
 
-    private DataContext<Param> getNewDataContext(Param param) {
-        return new DataContext<>(contextCore, getNewDataContextParam(param));
-    }
-
-    private DataContext.Param<Param> getNewDataContextParam(Param param) {
+    private DataParam<Param> getNewDataParam(Param param) {
         String paramKey = paramKeyConverter.getKey(param);
         String paramDesc = paramKey;
         if (null != paramDescConverter && paramDescConverter != paramKeyConverter) {
             paramDesc = paramDescConverter.getKey(param);
         }
-        return new DataContext.Param<>(paramDesc, paramKey, param);
+        return new DataParam<>(paramDesc, paramKey, param);
     }
 
     private void innerCacheData(Param param, DataCore<Data> dataCore) {
-        DataContext<Param> context = getNewDataContext(param);
+        DataParam<Param> dataParam = getNewDataParam(param);
         DataPack<Data> pack = new DataPack<>(dataCore, this, Long.MAX_VALUE);
-        storageManager.cacheData(context, pack);
+        storageManager.cacheData(dataParam, pack);
         // 记录日志
-        if (null != contextCore.logger) {
-            contextCore.logger.onCacheData(context, pack);
+        if (null != this.context.logger) {
+            this.context.logger.onCacheData(dataParam, pack);
         }
     }
 
     private void innerBatchCacheData(Map<Param, DataCore<Data>> dataCores) {
-        Map<DataContext.Param<Param>, DataPack<Data>> dataPacks = new HashMap<>();
+        Map<DataParam<Param>, DataPack<Data>> dataPacks = new HashMap<>();
         dataCores.forEach((param, dataCore) ->
-                dataPacks.put(getNewDataContextParam(param), new DataPack<>(dataCore, this, Long.MAX_VALUE))
+                dataPacks.put(getNewDataParam(param), new DataPack<>(dataCore, this, Long.MAX_VALUE))
         );
-        storageManager.batchCacheData(contextCore, dataPacks);
+        storageManager.batchCacheData(dataPacks);
         // 记录日志
-        if (null != contextCore.logger) {
-            contextCore.logger.onBatchCacheData(contextCore, dataPacks);
+        if (null != context.logger) {
+            context.logger.onBatchCacheData(dataPacks);
         }
     }
 
@@ -372,10 +374,11 @@ public class DataManager<Param, Data> {
          * 构建出用于使用的实例
          */
         public DataManager<Param, Data> build() {
-            DataContext.Core core = new DataContext.Core(dataDesc, Optional.ofNullable(this.storageId).orElse(dataDesc), logger);
-            storageManager.init(core);
+            DataContext context = new DataContext(dataDesc, Optional.ofNullable(this.storageId).orElse(dataDesc), logger);
+            storageManager.init(context);
+            Optional.ofNullable(logger).ifPresent(l -> l.onInit(context));
             // 创建管理器实例
-            return new DataManager<>(core, defaultDatasource, paramDescConverter, paramKeyConverter, storageManager);
+            return new DataManager<>(context, defaultDatasource, paramDescConverter, paramKeyConverter, storageManager);
         }
     }
 }

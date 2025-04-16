@@ -2,7 +2,7 @@ package com.soybeany.cache.v2.component;
 
 import com.soybeany.cache.v2.exception.NoCacheException;
 import com.soybeany.cache.v2.model.CacheEntity;
-import com.soybeany.cache.v2.model.DataContext;
+import com.soybeany.cache.v2.model.DataParam;
 import com.soybeany.cache.v2.storage.StdStorage;
 
 import java.util.HashMap;
@@ -28,22 +28,22 @@ public class DBSimulationStorage<Param, Data> extends StdStorage<Param, Data> {
     }
 
     @Override
-    protected CacheEntity<Data> onLoadCacheEntity(DataContext<Param> context, String key) throws NoCacheException {
-        if (!map.containsKey(key)) {
+    protected CacheEntity<Data> onLoadCacheEntity(DataParam<Param> param, String storageKey) throws NoCacheException {
+        if (!map.containsKey(storageKey)) {
             throw new NoCacheException();
         }
-        return map.get(key);
+        return map.get(storageKey);
     }
 
     @Override
-    protected CacheEntity<Data> onSaveCacheEntity(DataContext<Param> context, String key, CacheEntity<Data> entity) {
-        map.put(key, entity);
+    protected CacheEntity<Data> onSaveCacheEntity(DataParam<Param> param, String storageKey, CacheEntity<Data> entity) {
+        map.put(storageKey, entity);
         return entity;
     }
 
     @Override
-    protected void onRemoveCacheEntity(DataContext<Param> context, String key) {
-        map.remove(key);
+    protected void onRemoveCacheEntity(DataParam<Param> param, String storageKey) {
+        map.remove(storageKey);
     }
 
     @Override
@@ -52,12 +52,12 @@ public class DBSimulationStorage<Param, Data> extends StdStorage<Param, Data> {
     }
 
     @Override
-    public void onClearCache(DataContext.Core contextCore) {
+    public void onClearCache() {
         map.clear();
     }
 
     @Override
-    public int cachedDataCount(DataContext.Core contextCore) {
+    public int cachedDataCount() {
         return map.size();
     }
 

@@ -1,9 +1,9 @@
 package com.soybeany.cache.v2.core;
 
-import com.soybeany.cache.v2.contract.ICacheChecker;
-import com.soybeany.cache.v2.contract.ICacheStorage;
-import com.soybeany.cache.v2.contract.IDatasource;
-import com.soybeany.cache.v2.contract.IOnInvalidListener;
+import com.soybeany.cache.v2.contract.frame.ICacheStorage;
+import com.soybeany.cache.v2.contract.user.ICacheChecker;
+import com.soybeany.cache.v2.contract.user.IDatasource;
+import com.soybeany.cache.v2.contract.user.IOnInvalidListener;
 import com.soybeany.cache.v2.exception.BdCacheException;
 import com.soybeany.cache.v2.exception.CacheWaitException;
 import com.soybeany.cache.v2.exception.NoCacheException;
@@ -11,6 +11,7 @@ import com.soybeany.cache.v2.exception.NoDataSourceException;
 import com.soybeany.cache.v2.model.DataContext;
 import com.soybeany.cache.v2.model.DataCore;
 import com.soybeany.cache.v2.model.DataPack;
+import com.soybeany.cache.v2.model.DataParam;
 
 import java.util.*;
 import java.util.concurrent.TimeUnit;
@@ -33,7 +34,8 @@ class StorageManager<Param, Data> {
     private final LinkedList<ICacheStorage<Param, Data>> storages = new LinkedList<>();
     private final Set<IOnInvalidListener<Param>> onInvalidListeners = new HashSet<>();
 
-    private ICheckHolder<Param, Data> checkerHolder = (context, supplier) -> supplier.get();
+    private DataContext context;
+    private ICheckHolder<Param, Data> checkerHolder = (param, supplier) -> supplier.get();
     private long lockWaitTime = LOCK_WAIT_TIME_DEFAULT;
     private boolean enableRenewExpiredCache;
 
@@ -58,7 +60,7 @@ class StorageManager<Param, Data> {
     public void setDataChecker(Function<Param, Long> intervalSupplier, ICacheChecker<Param, Data> checker) {
         checkerHolder = new ICheckHolder<Param, Data>() {
             @Override
-            public DataPack<Data> getCheckedDataPack(DataContext<Param> context, Supplier<DataPack<Data>> supplier) {
+            public DataPack<Data> getCheckedDataPack(DataParam<Param> param, Supplier<DataPack<Data>> supplier) {
                 DataPack<Data> dataPack = supplier.get();
                 // 没有缓存策略，直接返回
                 if (storages.isEmpty()) {
@@ -66,32 +68,32 @@ class StorageManager<Param, Data> {
                 }
                 // 来源于数据源，只更新下次检测时间，直接返回
                 if (isFromDatasource(dataPack)) {
-                    updateNextCheckTime(context);
+                    updateNextCheckTime(param);
                     return dataPack;
                 }
 
                 ICacheStorage<Param, Data> firstStorage = storages.get(0);
                 long curTimestamp = System.currentTimeMillis();
                 // 若没到检测时间，则不作处理
-                if (curTimestamp < firstStorage.getNextCheckStamp(context)) {
+                if (curTimestamp < firstStorage.getNextCheckStamp(param)) {
                     return dataPack;
                 }
                 // 已达检测时间，执行检测
-                boolean needUpdate = StorageManager.this.needUpdate(checker, context, dataPack);
+                boolean needUpdate = StorageManager.this.needUpdate(checker, param, dataPack);
                 // 若需要更新，则重新获取一次数据
                 if (needUpdate) {
                     dataPack = supplier.get();
                 }
                 // 由于已执行检测，重新设置下次检测的时间
-                updateNextCheckTime(context);
+                updateNextCheckTime(param);
                 return dataPack;
             }
 
             @Override
-            public void updateNextCheckTime(DataContext<Param> context) {
+            public void updateNextCheckTime(DataParam<Param> param) {
                 ICacheStorage<Param, Data> firstStorage = storages.get(0);
                 long curTimestamp = System.currentTimeMillis();
-                firstStorage.setNextCheckStamp(context, curTimestamp + intervalSupplier.apply(context.param.param));
+                firstStorage.setNextCheckStamp(param, curTimestamp + intervalSupplier.apply(param.value));
             }
         };
     }
@@ -116,63 +118,64 @@ class StorageManager<Param, Data> {
         this.lockWaitTime = lockWaitTime;
     }
 
-    public void init(DataContext.Core core) {
+    public void init(DataContext context) {
+        this.context = context;
         if (storages.isEmpty()) {
             return;
         }
         storages.getLast().enableRenewExpiredCache(enableRenewExpiredCache);
-        storages.forEach(storage -> storage.onInit(core));
+        storages.forEach(storage -> storage.onInit(context));
     }
 
     /**
      * 获取数据并自动缓存
      */
-    public DataPack<Data> getDataPack(DataContext<Param> context, IDatasource<Param, Data> datasource, boolean needStore) {
-        return exeWithLock(context, () -> checkerHolder.getCheckedDataPack(context, () -> onGetDataPack(context, datasource, needStore)),
+    public DataPack<Data> getDataPack(DataParam<Param> param, IDatasource<Param, Data> datasource, boolean needStore) {
+        return exeWithLock(param, () -> checkerHolder.getCheckedDataPack(param, () -> onGetDataPack(param, datasource, needStore)),
                 e -> new DataPack<>(DataCore.fromException(e), this, 0)
         );
     }
 
-    public void cacheData(DataContext<Param> context, DataPack<Data> dataPack) {
-        exeWithLock(context, () -> {
-            traverseR((storage, prePack) -> storage.onCacheData(context, prePack), dataPack);
-            checkerHolder.updateNextCheckTime(context);
+    public void cacheData(DataParam<Param> param, DataPack<Data> dataPack) {
+        exeWithLock(param, () -> {
+            traverseR((storage, prePack) -> storage.onCacheData(param, prePack), dataPack);
+            checkerHolder.updateNextCheckTime(param);
         });
     }
 
-    public void batchCacheData(DataContext.Core contextCore, Map<DataContext.Param<Param>, DataPack<Data>> dataPacks) {
-        Set<DataContext.Param<Param>> params = dataPacks.keySet();
+    public void batchCacheData(Map<DataParam<Param>, DataPack<Data>> dataPacks) {
+        Set<DataParam<Param>> params = dataPacks.keySet();
         List<String> keys = params.stream().map(param -> param.paramKey).collect(Collectors.toList());
         exeWithLocks(keys, () -> {
-            traverseR((storage, prePacks) -> storage.onBatchCacheData(contextCore, prePacks), dataPacks);
-            params.forEach(param -> checkerHolder.updateNextCheckTime(new DataContext<>(contextCore, param)));
+            traverseR(ICacheStorage::onBatchCacheData, dataPacks);
+            params.forEach(param -> checkerHolder.updateNextCheckTime(param));
         });
     }
 
-    public void invalidCache(DataContext<Param> context, int... storageIndexes) {
-        exeWithLock(context, () -> onInvalidCache(context, storageIndexes));
+    public void invalidCache(DataParam<Param> param, int... storageIndexes) {
+        exeWithLock(param, () -> onInvalidCache(param, storageIndexes));
     }
 
-    public void invalidAllCache(DataContext.Core contextCore, int... storageIndexes) {
-        exeWithLocks(mKeyMap.keySet(), () -> traverse(storage -> storage.onInvalidAllCache(contextCore), storageIndexes));
+    public void invalidAllCache(int... storageIndexes) {
+        exeWithLocks(mKeyMap.keySet(), () -> traverse(ICacheStorage::onInvalidAllCache, storageIndexes));
     }
 
-    public void removeCache(DataContext<Param> context, int... storageIndexes) {
-        exeWithLock(context, () -> traverse(storage -> storage.onRemoveCache(context), storageIndexes));
+    public void removeCache(DataParam<Param> param, int... storageIndexes) {
+        exeWithLock(param, () -> traverse(storage -> storage.onRemoveCache(param), storageIndexes));
     }
 
-    public void clearCache(DataContext.Core contextCore, int... storageIndexes) {
-        exeWithLocks(mKeyMap.keySet(), () -> traverse(storage -> storage.onClearCache(contextCore), storageIndexes));
+    public void clearCache(int... storageIndexes) {
+        exeWithLocks(mKeyMap.keySet(), () -> traverse(ICacheStorage::onClearCache, storageIndexes));
     }
 
-    public boolean checkCache(DataContext<Param> context, ICacheChecker<Param, Data> checker) {
-        return exeWithLock2(context, () -> {
-            DataPack<Data> dataPack = onGetDataPack(context, null, false);
+    public boolean checkCache(DataParam<Param> param, ICacheChecker<Param, Data> checker) {
+        return exeWithLock2(param, () -> {
+            DataPack<Data> dataPack = onGetDataPack(param, null, false);
             if (dataPack.dataCore.exception instanceof NoDataSourceException) {
                 return false;
             }
-            boolean needUpdate = needUpdate(checker, context, dataPack);
-            checkerHolder.updateNextCheckTime(context);
+            boolean needUpdate = needUpdate(checker, param, dataPack);
+            checkerHolder.updateNextCheckTime(param);
             return needUpdate;
         });
     }
@@ -198,22 +201,22 @@ class StorageManager<Param, Data> {
         }
     }
 
-    private boolean needUpdate(ICacheChecker<Param, Data> checker, DataContext<Param> context, DataPack<Data> dataPack) {
-        boolean needUpdate = checker.needUpdate(context.param.param, dataPack);
-        context.core.logger.onCheckCache(context, needUpdate);
+    private boolean needUpdate(ICacheChecker<Param, Data> checker, DataParam<Param> param, DataPack<Data> dataPack) {
+        boolean needUpdate = checker.needUpdate(param.value, dataPack);
+        context.logger.onCheckCache(param, needUpdate);
         if (needUpdate) {
-            onInvalidCache(context);
+            onInvalidCache(param);
         }
         return needUpdate;
     }
 
-    private DataPack<Data> onGetDataPack(DataContext<Param> context, IDatasource<Param, Data> datasource, boolean needStore) {
+    private DataPack<Data> onGetDataPack(DataParam<Param> param, IDatasource<Param, Data> datasource, boolean needStore) {
         List<ICacheStorage<Param, Data>> storeList = new ArrayList<>();
         DataPack<Data> dataPack = null;
         // todo 每个Storage，均支持其提供锁（不提供则表示不需要锁），最后统一反向解锁
         for (ICacheStorage<Param, Data> storage : storages) {
             try {
-                dataPack = storage.onGetCache(context);
+                dataPack = storage.onGetCache(param);
                 break;
             }
             // 若当前节点没有缓存，则将当前节点纳入到待存储列表
@@ -225,30 +228,30 @@ class StorageManager<Param, Data> {
         }
         // 若全部节点均没有缓存，则直接访问数据源
         if (null == dataPack) {
-            dataPack = getDataDirectly(this, context.param.param, datasource);
+            dataPack = getDataDirectly(this, param.value, datasource);
         }
         // 回写缓存
         for (int i = storeList.size() - 1; i >= 0; i--) {
-            dataPack = storeList.get(i).onCacheData(context, dataPack);
+            dataPack = storeList.get(i).onCacheData(param, dataPack);
         }
         return dataPack;
     }
 
-    private void onInvalidCache(DataContext<Param> context, int... storageIndexes) {
-        traverse(storage -> storage.onInvalidCache(context), storageIndexes);
-        onInvalidListeners.forEach(listener -> listener.onInvoke(context.param.param, storageIndexes));
+    private void onInvalidCache(DataParam<Param> param, int... storageIndexes) {
+        traverse(storage -> storage.onInvalidCache(param), storageIndexes);
+        onInvalidListeners.forEach(listener -> listener.onInvoke(param.value, storageIndexes));
     }
 
-    private void exeWithLock(DataContext<Param> context, Runnable callback) {
-        exeWithLock(context, toFunc(callback), getOnException());
+    private void exeWithLock(DataParam<Param> param, Runnable callback) {
+        exeWithLock(param, toFunc(callback), getOnException());
     }
 
-    private <T> T exeWithLock2(DataContext<Param> context, Supplier<T> callback) {
-        return exeWithLock(context, callback, getOnException());
+    private <T> T exeWithLock2(DataParam<Param> param, Supplier<T> callback) {
+        return exeWithLock(param, callback, getOnException());
     }
 
-    private <T> T exeWithLock(DataContext<Param> context, Supplier<T> callback, Function<RuntimeException, T> onException) {
-        return exeWithLock(() -> tryLock(getLock(context.param.paramKey)), Lock::unlock, callback, onException);
+    private <T> T exeWithLock(DataParam<Param> param, Supplier<T> callback, Function<RuntimeException, T> onException) {
+        return exeWithLock(() -> tryLock(getLock(param.paramKey)), Lock::unlock, callback, onException);
     }
 
     private void exeWithLocks(Collection<String> keys, Runnable callback) {
@@ -322,9 +325,9 @@ class StorageManager<Param, Data> {
     }
 
     private interface ICheckHolder<Param, Data> {
-        DataPack<Data> getCheckedDataPack(DataContext<Param> context, Supplier<DataPack<Data>> supplier);
+        DataPack<Data> getCheckedDataPack(DataParam<Param> param, Supplier<DataPack<Data>> supplier);
 
-        default void updateNextCheckTime(DataContext<Param> context) {
+        default void updateNextCheckTime(DataParam<Param> param) {
         }
     }
 

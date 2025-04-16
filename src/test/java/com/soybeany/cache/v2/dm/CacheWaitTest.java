@@ -1,6 +1,6 @@
 package com.soybeany.cache.v2.dm;
 
-import com.soybeany.cache.v2.contract.IDatasource;
+import com.soybeany.cache.v2.contract.user.IDatasource;
 import com.soybeany.cache.v2.core.DataManager;
 import com.soybeany.cache.v2.exception.CacheWaitException;
 import com.soybeany.cache.v2.log.ConsoleLogger;

@@ -23,7 +23,11 @@ public class LruMemCacheStorage<Param, Data> extends StdStorage<Param, Data> imp
     private final MapStorage<Data> mapStorage;
 
     public LruMemCacheStorage(long pTtl, long pTtlErr, int capacity) {
-        this(pTtl, pTtlErr, new ReentrantLockSupport<>(), new SimpleImpl<>(new LruMap<>(capacity)));
+        this(pTtl, pTtlErr, capacity, new ReentrantLockSupport<>());
+    }
+
+    public LruMemCacheStorage(long pTtl, long pTtlErr, int capacity, ILockSupport<Param, Lock> locker) {
+        this(pTtl, pTtlErr, locker, new SimpleImpl<>(new LruMap<>(capacity)));
     }
 
     private LruMemCacheStorage(long pTtl, long pTtlErr, ILockSupport<Param, Lock> locker, MapStorage<Data> storage) {

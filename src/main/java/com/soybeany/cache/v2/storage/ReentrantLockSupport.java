@@ -13,7 +13,7 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Function;
 
 public class ReentrantLockSupport<Param> implements ILockSupport<Param, Lock> {
-    public static final long LOCK_WAIT_TIME_DEFAULT = 30;
+    public static final long LOCK_WAIT_TIME_DEFAULT = 30 * 1000;
 
     private final Lock lock = new ReentrantLock();
     private final Map<String, Lock> mKeyMap = new WeakHashMap<>();
@@ -32,7 +32,7 @@ public class ReentrantLockSupport<Param> implements ILockSupport<Param, Lock> {
     @Override
     public Lock onTryLock(DataParam<Param> param) {
         Lock lock = getLock(param);
-        tryLock(lock, lockWaitTimeSingleSupplier.apply(param.value));
+        tryLock(param.paramDesc, lock, lockWaitTimeSingleSupplier.apply(param.value));
         return lock;
     }
 
@@ -43,7 +43,7 @@ public class ReentrantLockSupport<Param> implements ILockSupport<Param, Lock> {
 
     @Override
     public void onTryLockAll() {
-        tryLock(lock, lockWaitTimeAll);
+        tryLock("全局", lock, lockWaitTimeAll);
     }
 
     @Override
@@ -53,22 +53,22 @@ public class ReentrantLockSupport<Param> implements ILockSupport<Param, Lock> {
 
     // ***********************内部方法****************************
 
-    private void tryLock(Lock lock, long lockWaitTime) {
+    private void tryLock(String desc, Lock lock, long lockWaitTime) {
         try {
-            if (!lock.tryLock(lockWaitTime, TimeUnit.SECONDS)) {
-                throw new CacheWaitException("超时");
+            if (!lock.tryLock(lockWaitTime, TimeUnit.MILLISECONDS)) {
+                throw new CacheWaitException("锁超时(" + desc + ")");
             }
         } catch (InterruptedException e) {
-            throw new CacheWaitException("中断");
+            throw new CacheWaitException("锁中断(" + desc + ")");
         }
     }
 
     private Lock getLock(DataParam<Param> param) {
-        lock.lock();
+        onTryLockAll();
         try {
             return mKeyMap.computeIfAbsent(param.paramKey, k -> new ReentrantLock());
         } finally {
-            lock.unlock();
+            onUnlockAll();
         }
     }
 }

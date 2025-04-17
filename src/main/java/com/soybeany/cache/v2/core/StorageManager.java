@@ -5,7 +5,6 @@ import com.soybeany.cache.v2.contract.frame.ILockSupport;
 import com.soybeany.cache.v2.contract.user.ICacheChecker;
 import com.soybeany.cache.v2.contract.user.IDatasource;
 import com.soybeany.cache.v2.contract.user.IOnInvalidListener;
-import com.soybeany.cache.v2.exception.BdCacheException;
 import com.soybeany.cache.v2.exception.NoCacheException;
 import com.soybeany.cache.v2.exception.NoDataSourceException;
 import com.soybeany.cache.v2.model.DataContext;
@@ -330,7 +329,7 @@ class StorageManager<Param, Data> {
 
     private <T> Function<RuntimeException, T> getOnException() {
         return e -> {
-            throw new BdCacheException(e.getMessage());
+            throw e;
         };
     }
 

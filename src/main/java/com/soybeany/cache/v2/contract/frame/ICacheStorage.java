@@ -7,7 +7,6 @@ import com.soybeany.cache.v2.model.DataContext;
 import com.soybeany.cache.v2.model.DataPack;
 import com.soybeany.cache.v2.model.DataParam;
 
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -118,17 +117,4 @@ public interface ICacheStorage<Param, Data> {
      * @return 数目
      */
     int cachedDataCount();
-
-    // ***********************内部类****************************
-
-    interface ILockSupport<L, BL> {
-        L onTryLock(String key, long lockWaitTime);
-
-        void onUnlock(L lock);
-
-        BL onBatchLock(Collection<String> keys, long lockWaitTime);
-
-        void onBatchUnlock(BL lock);
-    }
-
 }

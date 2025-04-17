@@ -1,6 +1,7 @@
 package com.soybeany.cache.v2.storage;
 
 import com.soybeany.cache.v2.contract.frame.ICacheStorage;
+import com.soybeany.cache.v2.contract.frame.ILockSupport;
 import com.soybeany.cache.v2.exception.NoCacheException;
 import com.soybeany.cache.v2.model.CacheEntity;
 import com.soybeany.cache.v2.model.DataParam;
@@ -9,14 +10,16 @@ import java.lang.ref.Reference;
 import java.lang.ref.SoftReference;
 import java.lang.ref.WeakReference;
 import java.util.*;
+import java.util.concurrent.locks.Lock;
 import java.util.function.Function;
 
 /**
  * @author Soybeany
  * @date 2022/2/9
  */
-public class LruMemCacheStorage<Param, Data> extends StdStorage<Param, Data> {
+public class LruMemCacheStorage<Param, Data> extends StdStorage<Param, Data> implements ILockSupport<Param, Lock> {
 
+    private final ILockSupport<Param, Lock> locker = new ReentrantLockSupport<>();
     private final MapStorage<Data> mapStorage;
 
     public LruMemCacheStorage(long pTtl, long pTtlErr, int capacity) {
@@ -85,6 +88,26 @@ public class LruMemCacheStorage<Param, Data> extends StdStorage<Param, Data> {
     public void setNextCheckStamp(DataParam<Param> param, long stamp) {
         mapStorage.onLoad(getStorageKey(param))
                 .ifPresent(entity -> entity.pNextCheckAt = stamp);
+    }
+
+    @Override
+    public Lock onTryLock(DataParam<Param> param, long lockWaitTime) {
+        return locker.onTryLock(param, lockWaitTime);
+    }
+
+    @Override
+    public void onUnlock(Lock lock) {
+        locker.onUnlock(lock);
+    }
+
+    @Override
+    public void onTryLockAll(long lockWaitTime) {
+        locker.onTryLockAll(lockWaitTime);
+    }
+
+    @Override
+    public void onUnlockAll() {
+        locker.onUnlockAll();
     }
 
     // ***********************内部类****************************

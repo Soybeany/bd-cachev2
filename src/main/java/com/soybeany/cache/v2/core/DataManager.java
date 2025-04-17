@@ -103,9 +103,7 @@ public class DataManager<Param, Data> {
         DataParam<Param> dataParam = getNewDataParam(param);
         DataPack<Data> pack = storageManager.getDataPack(dataParam, datasource, needStore);
         // 记录日志
-        if (null != this.context.logger) {
-            this.context.logger.onGetData(dataParam, pack, needStore);
-        }
+        context.logger.onGetData(dataParam, pack, needStore);
         return pack;
     }
 
@@ -115,9 +113,7 @@ public class DataManager<Param, Data> {
     public DataPack<Data> getDataPackDirectly(Param param) {
         DataPack<Data> pack = StorageManager.getDataDirectly(this, param, defaultDatasource);
         // 记录日志
-        if (null != context.logger) {
-            context.logger.onGetData(getNewDataParam(param), pack, false);
-        }
+        context.logger.onGetData(getNewDataParam(param), pack, false);
         return pack;
     }
 
@@ -163,9 +159,7 @@ public class DataManager<Param, Data> {
         DataParam<Param> dataParam = getNewDataParam(param);
         storageManager.invalidCache(dataParam, storageIndexes);
         // 记录日志
-        if (null != this.context.logger) {
-            this.context.logger.onInvalidCache(dataParam, storageIndexes);
-        }
+        context.logger.onInvalidCache(dataParam, storageIndexes);
     }
 
     /**
@@ -174,9 +168,7 @@ public class DataManager<Param, Data> {
     public void invalidAllCache(int... storageIndexes) {
         storageManager.invalidAllCache(storageIndexes);
         // 记录日志
-        if (null != context.logger) {
-            context.logger.onInvalidAllCache(storageIndexes);
-        }
+        context.logger.onInvalidAllCache(storageIndexes);
     }
 
     /**
@@ -186,9 +178,7 @@ public class DataManager<Param, Data> {
         DataParam<Param> dataParam = getNewDataParam(param);
         storageManager.removeCache(dataParam, storageIndexes);
         // 记录日志
-        if (null != this.context.logger) {
-            this.context.logger.onRemoveCache(dataParam, storageIndexes);
-        }
+        context.logger.onRemoveCache(dataParam, storageIndexes);
     }
 
     /**
@@ -197,9 +187,7 @@ public class DataManager<Param, Data> {
     public void clearCache(int... storageIndexes) {
         storageManager.clearCache(storageIndexes);
         // 记录日志
-        if (null != context.logger) {
-            context.logger.onClearCache(storageIndexes);
-        }
+        context.logger.onClearCache(storageIndexes);
     }
 
     /**
@@ -214,9 +202,7 @@ public class DataManager<Param, Data> {
             exist = false;
         }
         // 记录日志
-        if (null != this.context.logger) {
-            this.context.logger.onContainCache(dataParam, exist);
-        }
+        context.logger.onContainCache(dataParam, exist);
         return exist;
     }
 
@@ -246,9 +232,7 @@ public class DataManager<Param, Data> {
         DataPack<Data> pack = new DataPack<>(dataCore, this, Long.MAX_VALUE);
         storageManager.cacheData(dataParam, pack);
         // 记录日志
-        if (null != this.context.logger) {
-            this.context.logger.onCacheData(dataParam, pack);
-        }
+        context.logger.onCacheData(dataParam, pack);
     }
 
     private void innerBatchCacheData(Map<Param, DataCore<Data>> dataCores) {
@@ -258,9 +242,7 @@ public class DataManager<Param, Data> {
         );
         storageManager.batchCacheData(dataPacks);
         // 记录日志
-        if (null != context.logger) {
-            context.logger.onBatchCacheData(dataPacks);
-        }
+        context.logger.onBatchCacheData(dataPacks);
     }
 
     // ********************内部类********************
@@ -376,7 +358,7 @@ public class DataManager<Param, Data> {
         public DataManager<Param, Data> build() {
             DataContext context = new DataContext(dataDesc, Optional.ofNullable(this.storageId).orElse(dataDesc), logger);
             storageManager.init(context);
-            Optional.ofNullable(logger).ifPresent(l -> l.onInit(context));
+            logger.onInit(context);
             // 创建管理器实例
             return new DataManager<>(context, defaultDatasource, paramDescConverter, paramKeyConverter, storageManager);
         }

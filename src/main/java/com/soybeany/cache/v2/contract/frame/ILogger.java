@@ -17,56 +17,74 @@ public interface ILogger {
     /**
      * 初始化
      */
-    void onInit(DataContext context);
+    default void onInit(DataContext context) {
+    }
 
     /**
      * 获取数据时的回调
      */
-    <Param, Data> void onGetData(DataParam<Param> param, DataPack<Data> pack, boolean needStore);
+    default <Param, Data> void onGetData(DataParam<Param> param, DataPack<Data> pack, boolean needStore) {
+    }
 
     /**
      * 缓存数据时的回调
      */
-    <Param, Data> void onCacheData(DataParam<Param> param, DataPack<Data> pack);
+    default <Param, Data> void onCacheData(DataParam<Param> param, DataPack<Data> pack) {
+    }
 
     /**
      * 批量缓存数据时的回调
      */
-    <Param, Data> void onBatchCacheData(Map<DataParam<Param>, DataPack<Data>> dataPacks);
+    default <Param, Data> void onBatchCacheData(Map<DataParam<Param>, DataPack<Data>> dataPacks) {
+    }
 
     /**
      * 失效缓存时的回调
      */
-    <Param> void onInvalidCache(DataParam<Param> param, int... storageIndexes);
+    default <Param> void onInvalidCache(DataParam<Param> param, int... storageIndexes) {
+    }
 
     /**
      * 失效全部缓存时的回调
      */
-    void onInvalidAllCache(int... storageIndexes);
+    default void onInvalidAllCache(int... storageIndexes) {
+    }
 
     /**
      * 移除缓存时的回调
      */
-    <Param> void onRemoveCache(DataParam<Param> param, int... storageIndexes);
+    default <Param> void onRemoveCache(DataParam<Param> param, int... storageIndexes) {
+    }
 
     /**
      * 为已过期缓存续期时的回调
      */
-    <Param> void onRenewExpiredCache(DataParam<Param> param, Object provider);
+    default <Param> void onRenewExpiredCache(DataParam<Param> param, Object provider) {
+    }
 
     /**
      * 清除缓存时的回调
      */
-    void onClearCache(int... storageIndexes);
+    default void onClearCache(int... storageIndexes) {
+    }
 
     /**
      * 检测缓存是否存在的回调
      */
-    <Param> void onContainCache(DataParam<Param> param, boolean exist);
+    default <Param> void onContainCache(DataParam<Param> param, boolean exist) {
+    }
 
     /**
      * 检查缓存是否存在更新的回调
      */
-    <Param> void onCheckCache(DataParam<Param> param, boolean needUpdate);
+    default <Param> void onCheckCache(DataParam<Param> param, boolean needUpdate) {
+    }
 
+    /**
+     * 锁异常时的回调
+     *
+     * @param param 数据参数（可空，表示全局锁）
+     */
+    default <Param> void onLockException(DataParam<Param> param, Exception ex) {
+    }
 }

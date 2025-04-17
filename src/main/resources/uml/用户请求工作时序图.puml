@@ -1,0 +1,28 @@
+@startuml
+'https://plantuml.com/sequence-diagram
+
+autonumber
+
+用户 -> 主线程 ++: request
+
+主线程 -> 主线程 ++: lock
+
+主线程 -> 子线程 ++: start new thread
+return
+
+opt 超时内等待
+    子线程 -> 子线程 ++: 工作开始
+
+    子线程 -> 数据源 ++: 获取数据
+    return
+
+    子线程 -> 主线程 ++: notify
+    return
+
+    return 工作结束
+end
+
+return unlock
+
+return response
+@enduml

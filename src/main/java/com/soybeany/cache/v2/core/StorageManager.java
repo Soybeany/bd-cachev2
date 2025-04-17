@@ -22,17 +22,11 @@ import java.util.stream.Collectors;
 
 class StorageManager<Param, Data> {
 
-    /**
-     * 默认的锁等待时间
-     */
-    public static final long LOCK_WAIT_TIME_DEFAULT = 30;
-
     private final LinkedList<ICacheStorage<Param, Data>> storages = new LinkedList<>();
     private final Set<IOnInvalidListener<Param>> onInvalidListeners = new HashSet<>();
 
     private DataContext context;
     private ICheckHolder<Param, Data> checkerHolder = (param, supplier) -> supplier.get();
-    private long lockWaitTime = LOCK_WAIT_TIME_DEFAULT;
     private boolean enableRenewExpiredCache;
 
     public static <Param, Data> DataPack<Data> getDataDirectly(Object noDatasourceInvoker, Param param, IDatasource<Param, Data> datasource) {
@@ -110,10 +104,6 @@ class StorageManager<Param, Data> {
         this.enableRenewExpiredCache = enableRenewExpiredCache;
     }
 
-    public void lockWaitTime(long lockWaitTime) {
-        this.lockWaitTime = lockWaitTime;
-    }
-
     public void init(DataContext context) {
         this.context = context;
         if (storages.isEmpty()) {
@@ -137,8 +127,7 @@ class StorageManager<Param, Data> {
 
     public void batchCacheData(Map<DataParam<Param>, DataPack<Data>> dataPacks) {
         Set<DataParam<Param>> params = dataPacks.keySet();
-        List<String> keys = params.stream().map(param -> param.paramKey).collect(Collectors.toList());
-        traverseR((storage, packs) -> exeWithLockBatch(storage, params, () -> storage.onBatchCacheData(packs)), dataPacks);
+        traverseR((storage, prePacks) -> exeWithLockBatch(storage, params, () -> storage.onBatchCacheData(prePacks)), dataPacks);
         params.forEach(param -> checkerHolder.updateNextCheckTime(param));
     }
 
@@ -243,7 +232,7 @@ class StorageManager<Param, Data> {
     private <L> void exeWithLockAll(ICacheStorage<Param, Data> storage, Runnable callback) {
         onExeWithLockAuto(storage, locker -> {
             try {
-                locker.onTryLockAll(lockWaitTime);
+                locker.onTryLockAll();
                 return null;
             } catch (RuntimeException e) {
                 context.logger.onLockException(null, e);
@@ -313,7 +302,7 @@ class StorageManager<Param, Data> {
 
     private <L> L tryLock(ILockSupport<Param, L> locker, DataParam<Param> param) {
         try {
-            return locker.onTryLock(param, lockWaitTime);
+            return locker.onTryLock(param);
         } catch (RuntimeException e) {
             context.logger.onLockException(param, e);
             throw e;

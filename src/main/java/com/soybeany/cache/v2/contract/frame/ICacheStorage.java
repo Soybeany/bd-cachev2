@@ -90,6 +90,8 @@ public interface ICacheStorage<Param, Data> {
      */
     void onClearCache();
 
+    // ***********************主动调用类****************************
+
     /**
      * 获取下次检查的时间戳
      */
@@ -103,8 +105,6 @@ public interface ICacheStorage<Param, Data> {
     default void setNextCheckStamp(DataParam<Param> param, long stamp) {
         throw new BdCacheException("不支持此功能");
     }
-
-    // ***********************主动调用类****************************
 
     /**
      * 是否允许在数据源出现异常时，使用上一次已失效的缓存数据，使用异常的生存时间

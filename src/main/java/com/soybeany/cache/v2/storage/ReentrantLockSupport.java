@@ -5,19 +5,34 @@ import com.soybeany.cache.v2.exception.CacheWaitException;
 import com.soybeany.cache.v2.model.DataParam;
 
 import java.util.Map;
+import java.util.Optional;
 import java.util.WeakHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Function;
 
 public class ReentrantLockSupport<Param> implements ILockSupport<Param, Lock> {
+    public static final long LOCK_WAIT_TIME_DEFAULT = 30;
+
     private final Lock lock = new ReentrantLock();
     private final Map<String, Lock> mKeyMap = new WeakHashMap<>();
+    private final Function<Param, Long> lockWaitTimeSingleSupplier;
+    private final long lockWaitTimeAll;
+
+    public ReentrantLockSupport() {
+        this(null, null);
+    }
+
+    public ReentrantLockSupport(Function<Param, Long> lockWaitTimeSingleSupplier, Long lockWaitTimeAll) {
+        this.lockWaitTimeSingleSupplier = Optional.ofNullable(lockWaitTimeSingleSupplier).orElse(param -> LOCK_WAIT_TIME_DEFAULT);
+        this.lockWaitTimeAll = Optional.ofNullable(lockWaitTimeAll).orElse(LOCK_WAIT_TIME_DEFAULT);
+    }
 
     @Override
-    public Lock onTryLock(DataParam<Param> param, long lockWaitTime) {
+    public Lock onTryLock(DataParam<Param> param) {
         Lock lock = getLock(param);
-        tryLock(lock, lockWaitTime);
+        tryLock(lock, lockWaitTimeSingleSupplier.apply(param.value));
         return lock;
     }
 
@@ -27,8 +42,8 @@ public class ReentrantLockSupport<Param> implements ILockSupport<Param, Lock> {
     }
 
     @Override
-    public void onTryLockAll(long lockWaitTime) {
-        tryLock(lock, lockWaitTime);
+    public void onTryLockAll() {
+        tryLock(lock, lockWaitTimeAll);
     }
 
     @Override

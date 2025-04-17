@@ -337,14 +337,6 @@ public class DataManager<Param, Data> {
         }
 
         /**
-         * 设置等待锁的时间
-         */
-        public Builder<Param, Data> lockWaitTime(long seconds) {
-            storageManager.lockWaitTime(seconds);
-            return this;
-        }
-
-        /**
          * 新增缓存失效的监听器（单条，非全部）
          */
         public Builder<Param, Data> onInvalidListener(IOnInvalidListener<Param> listener) {

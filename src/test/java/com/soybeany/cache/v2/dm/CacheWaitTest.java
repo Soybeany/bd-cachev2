@@ -23,8 +23,7 @@ public class CacheWaitTest {
 
     private final DataManager<String, String> dataManager = DataManager.Builder
             .get("锁测试", datasource)
-            .withCache(new LruMemCacheStorage.Builder<String, String>().pTtl(200).build())
-            .lockWaitTime(1)
+            .withCache(new LruMemCacheStorage.Builder<String, String>().lockWaitTimeSingle(p -> 1L).pTtl(200).build())
             .logger(new ConsoleLogger())
             .build();
 

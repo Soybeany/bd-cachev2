@@ -1,43 +1,11 @@
 @startuml
 'https://plantuml.com/sequence-diagram
 
-autonumber
-
-participant 用户
-box Server
-    participant 工作线程1
-    participant 子线程
-end box
-participant 数据源
-
-用户 -> 工作线程1 ++: request
-
-工作线程1 -> 工作线程1 ++: lock
-
-工作线程1 -> 子线程 ++: post task
-return
-
-opt 超时内等待
-    子线程 -> 数据源 ++: 获取数据
-    return
-
-    子线程 -> 工作线程1 ++: notify
-    return
-end
-
-return unlock
-
-return response
-@enduml
-
-@startuml
-'https://plantuml.com/sequence-diagram
+title 并发获取数据
 
 participant 用户1
 participant 工作线程1
-participant 数据源
 participant 锁
-participant 缓存
 participant 工作线程2
 participant 用户2
 
@@ -49,11 +17,7 @@ autonumber
 工作线程1 -> 锁 ++: lock
 工作线程2 -> 锁 ++: wait lock
 
-工作线程1 -> 数据源 ++: 获取数据
-return
-
-工作线程1 -> 缓存 ++: 写入数据
-return
+ref over 工作线程1 : 数据获取逻辑
 
 return get lock
 return unlock
@@ -61,10 +25,38 @@ return unlock
 工作线程1 --> 用户1 --: response
 工作线程2 -> 锁 ++: lock
 
-工作线程2 -> 缓存 ++: 读取数据
-return
+ref over 工作线程2 : 数据获取逻辑
 
 return unlock
 
 工作线程2 --> 用户2 --: response
+@enduml
+
+@startuml
+title 数据获取逻辑
+autonumber
+
+工作线程-> 缓存管理器 ++: 获取数据
+
+缓存管理器 -> 缓存管理器 ++: lock 1
+缓存管理器-> 一级缓存 ++: 获取缓存
+return
+
+opt (没有缓存)
+    缓存管理器 -> 缓存管理器 ++: lock 2
+    缓存管理器-> 二级缓存 ++: 获取数据
+    return
+    opt (没有缓存)
+        缓存管理器-> 数据源 ++: 获取数据
+        return
+        缓存管理器 -> 二级缓存 ++: 写入数据
+        return
+    end
+    return unlock 2
+    缓存管理器 -> 一级缓存 ++: 写入数据
+    return
+end
+
+return unlock 1
+return
 @enduml

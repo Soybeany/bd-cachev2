@@ -34,6 +34,34 @@ return unlock
 
 @startuml
 title 数据获取逻辑
+
+start
+repeat
+    if (有下一级缓存策略?) is (否) then
+        if (有数据源?) is (有) then
+            :访问数据源;
+            :写入缓存数据;
+            break
+        else (无)
+            :抛出NoDatasource;
+            end
+        endif
+    else (是)
+        :切换到下一级缓存策略;
+        if(获取锁) is(成功) then
+            :读取缓存数据;
+        else (失败)
+            :抛出CacheWaitException(超时/中断);
+            end
+        endif
+    endif
+repeat while (捕获到NoCacheException?) is (是) not (否)
+:返回数据;
+stop
+@enduml
+
+@startuml
+title 数据获取逻辑
 autonumber
 
 工作线程-> 缓存管理器 ++: 获取数据

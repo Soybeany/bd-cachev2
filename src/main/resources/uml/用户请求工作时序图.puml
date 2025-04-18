@@ -3,23 +3,26 @@
 
 autonumber
 
+participant 用户
+box Server
+    participant 主线程
+    participant 子线程
+end box
+participant 数据源
+
 用户 -> 主线程 ++: request
 
 主线程 -> 主线程 ++: lock
 
-主线程 -> 子线程 ++: start new thread
+主线程 -> 子线程 ++: post task
 return
 
 opt 超时内等待
-    子线程 -> 子线程 ++: 工作开始
-
     子线程 -> 数据源 ++: 获取数据
     return
 
     子线程 -> 主线程 ++: notify
     return
-
-    return 工作结束
 end
 
 return unlock

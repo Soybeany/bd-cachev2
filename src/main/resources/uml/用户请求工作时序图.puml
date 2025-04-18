@@ -5,27 +5,66 @@ autonumber
 
 participant 用户
 box Server
-    participant 主线程
+    participant 工作线程1
     participant 子线程
 end box
 participant 数据源
 
-用户 -> 主线程 ++: request
+用户 -> 工作线程1 ++: request
 
-主线程 -> 主线程 ++: lock
+工作线程1 -> 工作线程1 ++: lock
 
-主线程 -> 子线程 ++: post task
+工作线程1 -> 子线程 ++: post task
 return
 
 opt 超时内等待
     子线程 -> 数据源 ++: 获取数据
     return
 
-    子线程 -> 主线程 ++: notify
+    子线程 -> 工作线程1 ++: notify
     return
 end
 
 return unlock
 
 return response
+@enduml
+
+@startuml
+'https://plantuml.com/sequence-diagram
+
+participant 用户1
+participant 工作线程1
+participant 数据源
+participant 锁
+participant 缓存
+participant 工作线程2
+participant 用户2
+
+autonumber
+
+用户1 -> 工作线程1 ++: request
+用户2 -> 工作线程2 ++: request
+
+工作线程1 -> 锁 ++: lock
+工作线程2 -> 锁 ++: wait lock
+
+工作线程1 -> 数据源 ++: 获取数据
+return
+
+工作线程1 -> 缓存 ++: 写入数据
+return
+
+return get lock
+return unlock
+
+工作线程1 --> 用户1 --: response
+工作线程2 -> 锁 ++: lock
+
+工作线程2 -> 缓存 ++: 读取数据
+return
+
+return unlock
+
+工作线程2 --> 用户2 --: response
 @enduml

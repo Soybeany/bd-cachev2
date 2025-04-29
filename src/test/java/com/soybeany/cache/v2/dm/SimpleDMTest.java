@@ -35,6 +35,11 @@ public class SimpleDMTest {
             .build();
 
     @Test
+    public void noLogger() {
+        DataManager.Builder.get("无logger", datasource).withCache(lruStorage).build();
+    }
+
+    @Test
     public void sequenceTest() {
         String key = "key";
         // 第一次将访问数据源

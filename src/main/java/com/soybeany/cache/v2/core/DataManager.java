@@ -258,7 +258,8 @@ public class DataManager<Param, Data> {
 
         private IKeyConverter<Param> paramDescConverter;
 
-        private ILogger logger;
+        private ILogger logger = new ILogger() {
+        };
 
         public static <Data> Builder<String, Data> get(String dataDesc, IDatasource<String, Data> datasource) {
             return new Builder<>(dataDesc, datasource, new IKeyConverter.Std());

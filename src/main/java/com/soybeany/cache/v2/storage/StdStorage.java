@@ -18,7 +18,7 @@ public abstract class StdStorage<Param, Data> implements ICacheStorage<Param, Da
     protected final long pTtl;
     protected final long pTtlErr;
 
-    private DataContext context;
+    protected DataContext context;
     private boolean enableRenewExpiredCache;
 
     public StdStorage(long pTtl, long pTtlErr) {

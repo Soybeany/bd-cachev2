@@ -14,6 +14,9 @@ import java.util.Map;
  */
 public interface ILogger {
 
+    ILogger SKIP = new ILogger() {
+    };
+
     /**
      * 初始化
      */

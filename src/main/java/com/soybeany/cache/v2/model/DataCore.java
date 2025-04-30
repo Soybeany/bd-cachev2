@@ -17,6 +17,10 @@ public class DataCore<Data> {
     public final RuntimeException exception; // 相关的异常
 
     public static <Data> String toJson(DataCore<Data> dataCore) {
+        return GSON.toJson(toJsonInfo(dataCore));
+    }
+
+    public static <Data> JsonInfo toJsonInfo(DataCore<Data> dataCore) {
         JsonInfo jsonInfo = new JsonInfo();
         jsonInfo.norm = dataCore.norm;
         if (dataCore.norm) {
@@ -27,14 +31,17 @@ public class DataCore<Data> {
             info.json = GSON.toJson(dataCore.exception);
             jsonInfo.exceptionJson = info;
         }
-        return GSON.toJson(jsonInfo);
+        return jsonInfo;
+    }
+
+    public static <Data> DataCore<Data> fromJson(String json, Type dataType) throws ClassNotFoundException {
+        return fromJsonInfo(GSON.fromJson(json, JsonInfo.class), dataType);
     }
 
     /**
      * @param dataType {@link #data}数据的类型
      */
-    public static <Data> DataCore<Data> fromJson(String json, Type dataType) throws ClassNotFoundException {
-        JsonInfo jsonInfo = GSON.fromJson(json, JsonInfo.class);
+    public static <Data> DataCore<Data> fromJsonInfo(JsonInfo jsonInfo, Type dataType) throws ClassNotFoundException {
         if (jsonInfo.norm) {
             return DataCore.fromData(GSON.fromJson(jsonInfo.dataJson, dataType));
         } else {
@@ -61,13 +68,13 @@ public class DataCore<Data> {
         this.exception = exception;
     }
 
-    private static class JsonInfo {
+    public static class JsonInfo {
         public boolean norm; // 是否为正常数据
         public String dataJson; // 数据
         public ExceptionInfo exceptionJson; // 相关的异常
     }
 
-    private static class ExceptionInfo {
+    public static class ExceptionInfo {
         public String clazz;
         public String json;
     }

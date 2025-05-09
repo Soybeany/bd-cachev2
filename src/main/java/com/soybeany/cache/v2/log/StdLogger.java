@@ -109,8 +109,8 @@ public class StdLogger implements ILogger {
     }
 
     @Override
-    public <Param> void onLockException(DataParam<Param> param, Exception ex) {
-        String paramDesc = null == param ? "全局" : getParamDesc(param);
+    public void onLockException(String key, Exception ex) {
+        String paramDesc = null == key ? "全局" : key;
         mWriter.onWriteInfo("“" + getDataDesc() + "”在“" + paramDesc + "”中出现了“" + ex.getMessage() + "”的锁异常");
     }
 

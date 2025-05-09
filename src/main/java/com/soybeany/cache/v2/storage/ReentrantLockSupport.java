@@ -2,7 +2,6 @@ package com.soybeany.cache.v2.storage;
 
 import com.soybeany.cache.v2.contract.frame.ILockSupport;
 import com.soybeany.cache.v2.exception.CacheWaitException;
-import com.soybeany.cache.v2.model.DataParam;
 
 import java.util.Map;
 import java.util.Optional;
@@ -12,29 +11,29 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Function;
 
-public class ReentrantLockSupport<Param> implements ILockSupport<Param, Lock, Object> {
+public class ReentrantLockSupport implements ILockSupport<Lock, Object> {
     public static final long LOCK_WAIT_TIME_DEFAULT = 30 * 1000;
 
     private final String desc;
     private final Lock lock = new ReentrantLock();
     private final Map<String, Lock> mKeyMap = new WeakHashMap<>();
-    private final Function<Param, Long> lockWaitTimeSingleSupplier;
+    private final Function<String, Long> lockWaitTimeSingleSupplier;
     private final long lockWaitTimeAll;
 
     public ReentrantLockSupport(String desc) {
         this(desc, null, null);
     }
 
-    public ReentrantLockSupport(String desc, Function<Param, Long> lockWaitTimeSingleSupplier, Long lockWaitTimeAll) {
+    public ReentrantLockSupport(String desc, Function<String, Long> lockWaitTimeSingleSupplier, Long lockWaitTimeAll) {
         this.desc = desc;
         this.lockWaitTimeSingleSupplier = Optional.ofNullable(lockWaitTimeSingleSupplier).orElse(param -> LOCK_WAIT_TIME_DEFAULT);
         this.lockWaitTimeAll = Optional.ofNullable(lockWaitTimeAll).orElse(LOCK_WAIT_TIME_DEFAULT);
     }
 
     @Override
-    public Lock onTryLock(DataParam<Param> param) {
-        Lock lock = getLock(param);
-        tryLock(param.paramDesc, lock, lockWaitTimeSingleSupplier.apply(param.value));
+    public Lock onTryLock(String key) {
+        Lock lock = getLock(key);
+        tryLock(key, lock, lockWaitTimeSingleSupplier.apply(key));
         return lock;
     }
 
@@ -66,10 +65,10 @@ public class ReentrantLockSupport<Param> implements ILockSupport<Param, Lock, Ob
         }
     }
 
-    private Lock getLock(DataParam<Param> param) {
+    private Lock getLock(String key) {
         Object allLock = onTryLockAll();
         try {
-            return mKeyMap.computeIfAbsent(param.paramKey, k -> new ReentrantLock());
+            return mKeyMap.computeIfAbsent(key, k -> new ReentrantLock());
         } finally {
             onUnlockAll(allLock);
         }

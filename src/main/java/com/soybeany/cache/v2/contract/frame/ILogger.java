@@ -86,8 +86,8 @@ public interface ILogger {
     /**
      * 锁异常时的回调
      *
-     * @param param 数据参数（可空，表示全局锁）
+     * @param key 加/解锁用的key（可空，表示全局锁）
      */
-    default <Param> void onLockException(DataParam<Param> param, Exception ex) {
+    default void onLockException(String key, Exception ex) {
     }
 }

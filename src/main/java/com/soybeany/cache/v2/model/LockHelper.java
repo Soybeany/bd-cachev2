@@ -6,39 +6,39 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
-public class LockHelper<Param, L, AL> {
+public class LockHelper<L, AL> {
 
     private final DataContext context;
-    private final ILockSupport<Param, L, AL> lockSupport;
+    private final ILockSupport<L, AL> lockSupport;
 
-    public LockHelper(DataContext context, ILockSupport<Param, L, AL> lockSupport) {
+    public LockHelper(DataContext context, ILockSupport<L, AL> lockSupport) {
         this.context = context;
         this.lockSupport = lockSupport;
     }
 
-    public L tryLock(DataParam<Param> param) {
+    public L tryLock(String key) {
         try {
-            return lockSupport.onTryLock(param);
+            return lockSupport.onTryLock(key);
         } catch (RuntimeException e) {
-            context.logger.onLockException(param, e);
+            context.logger.onLockException(key, e);
             throw e;
         }
     }
 
-    public void unlock(DataParam<Param> param, L lock) {
+    public void unlock(String key, L lock) {
         try {
             lockSupport.onUnlock(lock);
         } catch (RuntimeException e) {
-            context.logger.onLockException(param, e);
+            context.logger.onLockException(key, e);
         }
     }
 
-    public Map<DataParam<Param>, L> tryLockBatch(Collection<DataParam<Param>> params) {
-        Map<DataParam<Param>, L> locking = new HashMap<>();
-        for (DataParam<Param> param : params) {
+    public Map<String, L> tryLockBatch(Collection<String> keys) {
+        Map<String, L> locking = new HashMap<>();
+        for (String key : keys) {
             try {
-                L lock = tryLock(param);
-                locking.put(param, lock);
+                L lock = tryLock(key);
+                locking.put(key, lock);
             } catch (RuntimeException e) {
                 unlockBatch(locking);
                 throw e;
@@ -47,7 +47,7 @@ public class LockHelper<Param, L, AL> {
         return locking;
     }
 
-    public void unlockBatch(Map<DataParam<Param>, L> locking) {
+    public void unlockBatch(Map<String, L> locking) {
         locking.forEach(this::unlock);
     }
 

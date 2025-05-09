@@ -65,7 +65,7 @@ public class CacheWaitTest {
     private static class TestStorage<Param, Data> extends LruMemCacheStorage<Param, Data> {
 
         public TestStorage() {
-            super(200, 60 * 1000, 100, new ReentrantLockSupport<>("CacheWaitTest", p -> 1000L, 20L));
+            super(200, 60 * 1000, 100, new ReentrantLockSupport("CacheWaitTest", p -> 1000L, 20L));
         }
 
         @SuppressWarnings("CallToPrintStackTrace")

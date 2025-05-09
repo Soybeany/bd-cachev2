@@ -217,11 +217,13 @@ class StorageManager<Param, Data> {
     }
 
     private <T> T exeWithLock(ICacheStorage<Param, Data> storage, DataParam<Param> param, Supplier<T> callback, Function<RuntimeException, T> onException) {
-        return onExeWithLockAuto(storage, lockHelper -> lockHelper.tryLock(param), (lockHelper, lock) -> lockHelper.unlock(param, lock), callback, onException);
+        String key = param.paramKey;
+        return onExeWithLockAuto(storage, lockHelper -> lockHelper.tryLock(key), (lockHelper, lock) -> lockHelper.unlock(key, lock), callback, onException);
     }
 
     private <T> T exeWithLockBatch(ICacheStorage<Param, Data> storage, Collection<DataParam<Param>> params, Supplier<T> callback) {
-        return onExeWithLockAuto(storage, lockHelper -> lockHelper.tryLockBatch(params), LockHelper::unlockBatch, callback, getOnException());
+        Collection<String> keys = params.stream().map(p -> p.paramKey).collect(Collectors.toList());
+        return onExeWithLockAuto(storage, lockHelper -> lockHelper.tryLockBatch(keys), LockHelper::unlockBatch, callback, getOnException());
     }
 
     private void exeWithLockAll(ICacheStorage<Param, Data> storage, Runnable callback) {
@@ -229,9 +231,9 @@ class StorageManager<Param, Data> {
     }
 
     @SuppressWarnings("unchecked")
-    private <L, AL, T, K> T onExeWithLockAuto(ICacheStorage<Param, Data> storage, ICallback3<Param, L, AL, K> onLock, ICallback4<Param, L, AL, K> onUnlock, Supplier<T> callback, Function<RuntimeException, T> onException) {
+    private <L, AL, T, K> T onExeWithLockAuto(ICacheStorage<Param, Data> storage, ICallback3<L, AL, K> onLock, ICallback4<L, AL, K> onUnlock, Supplier<T> callback, Function<RuntimeException, T> onException) {
         if (storage instanceof ILockSupport) {
-            LockHelper<Param, L, AL> lockHelper = new LockHelper<>(context, (ILockSupport<Param, L, AL>) storage);
+            LockHelper<L, AL> lockHelper = new LockHelper<>(context, (ILockSupport<L, AL>) storage);
             return onExeWithLock(() -> onLock.onInvoke(lockHelper), lock -> onUnlock.onInvoke(lockHelper, lock), callback, onException);
         } else {
             return onExe(callback, onException);
@@ -290,12 +292,12 @@ class StorageManager<Param, Data> {
         void onInvoke(ICacheStorage<Param, Data> storage);
     }
 
-    private interface ICallback3<Param, L, AL, K> {
-        K onInvoke(LockHelper<Param, L, AL> locker);
+    private interface ICallback3<L, AL, K> {
+        K onInvoke(LockHelper<L, AL> locker);
     }
 
-    private interface ICallback4<Param, L, AL, K> {
-        void onInvoke(LockHelper<Param, L, AL> locker, K lock);
+    private interface ICallback4<L, AL, K> {
+        void onInvoke(LockHelper<L, AL> locker, K lock);
     }
 
     private interface ICheckHolder<Param, Data> {

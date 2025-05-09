@@ -17,20 +17,21 @@ import java.util.function.Function;
  * @author Soybeany
  * @date 2022/2/9
  */
-public class LruMemCacheStorage<Param, Data> extends StdStorage<Param, Data> implements ILockSupport<Param, Lock> {
+public class LruMemCacheStorage<Param, Data> extends StdStorage<Param, Data> implements ILockSupport<Param, Lock, Object> {
+    private static final String DESC = "LRU";
 
-    private final ILockSupport<Param, Lock> locker;
+    private final ILockSupport<Param, Lock, Object> locker;
     private final MapStorage<Data> mapStorage;
 
     public LruMemCacheStorage(long pTtl, long pTtlErr, int capacity) {
-        this(pTtl, pTtlErr, capacity, new ReentrantLockSupport<>());
+        this(pTtl, pTtlErr, capacity, new ReentrantLockSupport<>(DESC));
     }
 
-    public LruMemCacheStorage(long pTtl, long pTtlErr, int capacity, ILockSupport<Param, Lock> locker) {
+    public LruMemCacheStorage(long pTtl, long pTtlErr, int capacity, ILockSupport<Param, Lock, Object> locker) {
         this(pTtl, pTtlErr, locker, new SimpleImpl<>(new LruMap<>(capacity)));
     }
 
-    private LruMemCacheStorage(long pTtl, long pTtlErr, ILockSupport<Param, Lock> locker, MapStorage<Data> storage) {
+    private LruMemCacheStorage(long pTtl, long pTtlErr, ILockSupport<Param, Lock, Object> locker, MapStorage<Data> storage) {
         super(pTtl, pTtlErr);
         this.locker = locker;
         mapStorage = storage;
@@ -38,7 +39,7 @@ public class LruMemCacheStorage<Param, Data> extends StdStorage<Param, Data> imp
 
     @Override
     public String desc() {
-        return "LRU";
+        return DESC;
     }
 
     @Override
@@ -106,13 +107,13 @@ public class LruMemCacheStorage<Param, Data> extends StdStorage<Param, Data> imp
     }
 
     @Override
-    public void onTryLockAll() {
-        locker.onTryLockAll();
+    public Object onTryLockAll() {
+        return locker.onTryLockAll();
     }
 
     @Override
-    public void onUnlockAll() {
-        locker.onUnlockAll();
+    public void onUnlockAll(Object lock) {
+        locker.onUnlockAll(lock);
     }
 
     // ***********************内部类****************************
@@ -136,11 +137,13 @@ public class LruMemCacheStorage<Param, Data> extends StdStorage<Param, Data> imp
             return this;
         }
 
+        @SuppressWarnings("unused")
         public Builder<Param, Data> lockWaitTimeSingle(Function<Param, Long> supplier) {
             lockWaitTimeSingleSupplier = supplier;
             return this;
         }
 
+        @SuppressWarnings("unused")
         public Builder<Param, Data> lockWaitTimeAll(long millis) {
             lockWaitTimeAll = millis;
             return this;
@@ -149,7 +152,7 @@ public class LruMemCacheStorage<Param, Data> extends StdStorage<Param, Data> imp
         @Override
         protected ICacheStorage<Param, Data> onBuild() {
             RefImpl<Data> storage = weakRef ? new RefImpl<>(capacity, WeakReference::new) : new RefImpl<>(capacity, SoftReference::new);
-            return new LruMemCacheStorage<>(pTtl, pTtlErr, new ReentrantLockSupport<>(lockWaitTimeSingleSupplier, lockWaitTimeAll), storage);
+            return new LruMemCacheStorage<>(pTtl, pTtlErr, new ReentrantLockSupport<>(DESC, lockWaitTimeSingleSupplier, lockWaitTimeAll), storage);
         }
 
         @Override

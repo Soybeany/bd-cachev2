@@ -28,7 +28,7 @@ public class MultiKeyDMTest {
                 return s;
             })
             .withCache(lruStorage)
-            .logger(new ConsoleLogger())
+            .logger(new ConsoleLogger<>())
             .build();
 
     @Test
@@ -58,6 +58,7 @@ public class MultiKeyDMTest {
             super(pTtl, 60 * 1000, 100);
         }
 
+        @SuppressWarnings("CallToPrintStackTrace")
         @Override
         public DataPack<Data> onCacheData(DataParam<Param> param, DataPack<Data> dataPack) {
             System.out.println("存数据:" + param.paramKey);

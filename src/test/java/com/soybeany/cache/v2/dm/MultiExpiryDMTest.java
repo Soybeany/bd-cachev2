@@ -28,7 +28,7 @@ public class MultiExpiryDMTest {
             .get("MultiExpiry", datasource)
             .withCache(lruStorage)
             .withCache(dbStorage)
-            .logger(new ConsoleLogger())
+            .logger(new ConsoleLogger<>())
             .build();
 
     @Test

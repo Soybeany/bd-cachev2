@@ -33,7 +33,7 @@ public interface ICacheStorage<Param, Data> {
      * @param context 上下文
      */
     @SuppressWarnings("unused")
-    default void onInit(DataContext context) {
+    default void onInit(DataContext<Param> context) {
         // 子类实现
     }
 

@@ -12,7 +12,7 @@ import java.util.Map;
  * <br>Created by Soybeany on 2020/10/16.
  */
 public class DBSimulationStorage<Param, Data> extends StdStorage<Param, Data> {
-    private final Map<String, CacheEntity<Data>> map = new HashMap<>();
+    private final Map<String, Holder> map = new HashMap<>();
 
     public DBSimulationStorage() {
         this(Integer.MAX_VALUE);
@@ -32,12 +32,12 @@ public class DBSimulationStorage<Param, Data> extends StdStorage<Param, Data> {
         if (!map.containsKey(storageKey)) {
             throw new NoCacheException();
         }
-        return map.get(storageKey);
+        return map.get(storageKey).entity;
     }
 
     @Override
     protected CacheEntity<Data> onSaveCacheEntity(DataParam<Param> param, String storageKey, CacheEntity<Data> entity) {
-        map.put(storageKey, entity);
+        map.put(storageKey, new Holder(param.value, entity));
         return entity;
     }
 
@@ -61,4 +61,15 @@ public class DBSimulationStorage<Param, Data> extends StdStorage<Param, Data> {
         return map.size();
     }
 
+    // ***********************内部类****************************
+
+    private class Holder {
+        Param param;
+        CacheEntity<Data> entity;
+
+        public Holder(Param param, CacheEntity<Data> entity) {
+            this.param = param;
+            this.entity = entity;
+        }
+    }
 }

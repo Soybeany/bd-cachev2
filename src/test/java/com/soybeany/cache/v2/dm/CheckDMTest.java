@@ -27,7 +27,7 @@ public class CheckDMTest {
             .withCache(new LruMemCacheStorage.Builder<Integer, Integer>().pTtl(pTtl).build())
             .onInvalidListener((k, i) -> a++)
             .enableDataCheck(p -> 200L, checker)
-            .logger(new ConsoleLogger())
+            .logger(new ConsoleLogger<>())
             .build();
 
     @Test

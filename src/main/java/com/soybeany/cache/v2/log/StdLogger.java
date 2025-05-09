@@ -16,22 +16,22 @@ import java.util.Objects;
  * @author Soybeany
  * @date 2020/12/8
  */
-public class StdLogger implements ILogger {
+public class StdLogger<Param> implements ILogger<Param> {
 
     private final ILogWriter mWriter;
-    private DataContext context;
+    private DataContext<Param> context;
 
     public StdLogger(ILogWriter writer) {
         mWriter = writer;
     }
 
     @Override
-    public void onInit(DataContext context) {
+    public void onInit(DataContext<Param> context) {
         this.context = context;
     }
 
     @Override
-    public <Param, Data> void onGetData(DataParam<Param> param, DataPack<Data> pack, boolean needStore) {
+    public <Data> void onGetData(DataParam<Param> param, DataPack<Data> pack, boolean needStore) {
         String from = getFrom(pack.provider, needStore);
         String dataDesc = getDataDesc();
         String paramDesc = getParamDesc(param);
@@ -43,7 +43,7 @@ public class StdLogger implements ILogger {
     }
 
     @Override
-    public <Param, Data> void onCacheData(DataParam<Param> param, DataPack<Data> pack) {
+    public <Data> void onCacheData(DataParam<Param> param, DataPack<Data> pack) {
         String dataDesc = getDataDesc();
         String paramDesc = getParamDesc(param);
         if (pack.norm()) {
@@ -54,7 +54,7 @@ public class StdLogger implements ILogger {
     }
 
     @Override
-    public <Param, Data> void onBatchCacheData(Map<DataParam<Param>, DataPack<Data>> dataPacks) {
+    public <Data> void onBatchCacheData(Map<DataParam<Param>, DataPack<Data>> dataPacks) {
         String dataDesc = getDataDesc();
         List<String> dataList = new ArrayList<>();
         List<String> exceptionList = new ArrayList<>();
@@ -74,7 +74,7 @@ public class StdLogger implements ILogger {
     }
 
     @Override
-    public <Param> void onInvalidCache(DataParam<Param> param, int... storageIndexes) {
+    public void onInvalidCache(DataParam<Param> param, int... storageIndexes) {
         mWriter.onWriteInfo("“" + getDataDesc() + "”失效了" + getIndexMsg(storageIndexes) + "中“" + getParamDesc(param) + "”的缓存");
     }
 
@@ -84,12 +84,12 @@ public class StdLogger implements ILogger {
     }
 
     @Override
-    public <Param> void onRemoveCache(DataParam<Param> param, int... storageIndexes) {
+    public void onRemoveCache(DataParam<Param> param, int... storageIndexes) {
         mWriter.onWriteInfo("“" + getDataDesc() + "”移除了" + getIndexMsg(storageIndexes) + "中“" + getParamDesc(param) + "”的缓存");
     }
 
     @Override
-    public <Param> void onRenewExpiredCache(DataParam<Param> param, Object provider) {
+    public void onRenewExpiredCache(DataParam<Param> param, Object provider) {
         mWriter.onWriteInfo("“" + getDataDesc() + "”在“" + getFrom(provider, true) + "”续期了“" + getParamDesc(param) + "”的缓存");
     }
 
@@ -99,13 +99,19 @@ public class StdLogger implements ILogger {
     }
 
     @Override
-    public <Param> void onContainCache(DataParam<Param> param, boolean exist) {
+    public void onContainCache(DataParam<Param> param, boolean exist) {
         mWriter.onWriteInfo("“" + getDataDesc() + "”" + (exist ? "存在" : "没有") + "“" + getParamDesc(param) + "”的缓存");
     }
 
     @Override
-    public <Param> void onCheckCache(DataParam<Param> param, boolean needUpdate) {
+    public void onCheckCache(DataParam<Param> param, boolean needUpdate) {
         mWriter.onWriteInfo("“" + getDataDesc() + "”" + (needUpdate ? "需要" : "无需") + "更新“" + getParamDesc(param) + "”的缓存");
+    }
+
+    @Override
+    public void onLockException(DataParam<Param> param, Exception ex) {
+        String paramDesc = null == param ? "全局" : getParamDesc(param);
+        mWriter.onWriteInfo("“" + getDataDesc() + "”在“" + paramDesc + "”中出现了“" + ex.getMessage() + "”的锁异常");
     }
 
     private String getFrom(Object provider, boolean needStore) {
@@ -125,7 +131,7 @@ public class StdLogger implements ILogger {
         return desc;
     }
 
-    private <Param> String getParamDesc(DataParam<Param> dataParam) {
+    private String getParamDesc(DataParam<Param> dataParam) {
         String desc = dataParam.paramDesc;
         if (!Objects.equals(dataParam.paramDesc, dataParam.paramKey)) {
             desc += "(" + dataParam.paramKey + ")";

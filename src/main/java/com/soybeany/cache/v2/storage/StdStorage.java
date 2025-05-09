@@ -18,7 +18,7 @@ public abstract class StdStorage<Param, Data> implements ICacheStorage<Param, Da
     protected final long pTtl;
     protected final long pTtlErr;
 
-    protected DataContext context;
+    protected DataContext<Param> context;
     private boolean enableRenewExpiredCache;
 
     public StdStorage(long pTtl, long pTtlErr) {
@@ -27,7 +27,7 @@ public abstract class StdStorage<Param, Data> implements ICacheStorage<Param, Da
     }
 
     @Override
-    public void onInit(DataContext context) {
+    public void onInit(DataContext<Param> context) {
         this.context = context;
     }
 

@@ -21,7 +21,7 @@ public class WeakRefDMTest {
     private final DataManager<String, Data> dataManager = DataManager.Builder
             .get("弱引用测试", datasource)
             .withCache(storage)
-            .logger(new ConsoleLogger())
+            .logger(new ConsoleLogger<>())
             .build();
 
     @Test

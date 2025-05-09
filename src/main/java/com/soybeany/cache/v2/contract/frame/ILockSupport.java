@@ -2,12 +2,14 @@ package com.soybeany.cache.v2.contract.frame;
 
 import com.soybeany.cache.v2.model.DataParam;
 
-public interface ILockSupport<Param, L> {
+public interface ILockSupport<Param, L, AL> {
+
     L onTryLock(DataParam<Param> param);
 
     void onUnlock(L lock);
 
-    void onTryLockAll();
+    AL onTryLockAll();
 
-    void onUnlockAll();
+    void onUnlockAll(AL lock);
+
 }

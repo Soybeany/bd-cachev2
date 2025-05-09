@@ -25,7 +25,7 @@ public class CacheWaitTest {
     private final DataManager<String, String> dataManager = DataManager.Builder
             .get("锁测试", datasource)
             .withCache(new TestStorage<>())
-            .logger(new ConsoleLogger())
+            .logger(new ConsoleLogger<>())
             .build();
 
     @Test
@@ -65,9 +65,10 @@ public class CacheWaitTest {
     private static class TestStorage<Param, Data> extends LruMemCacheStorage<Param, Data> {
 
         public TestStorage() {
-            super(200, 60 * 1000, 100, new ReentrantLockSupport<>(p -> 1000L, 20L));
+            super(200, 60 * 1000, 100, new ReentrantLockSupport<>("CacheWaitTest", p -> 1000L, 20L));
         }
 
+        @SuppressWarnings("CallToPrintStackTrace")
         @Override
         public synchronized void onInvalidAllCache() {
             try {

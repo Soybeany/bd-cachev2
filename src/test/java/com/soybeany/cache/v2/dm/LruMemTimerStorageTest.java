@@ -29,7 +29,7 @@ public class LruMemTimerStorageTest {
     private final DataManager<String, String> dataManager = DataManager.Builder
             .get("LRU定时器存储器测试", datasource)
             .withCache(cacheStorage)
-            .logger(new ConsoleLogger())
+            .logger(new ConsoleLogger<>())
             .build();
 
     @BeforeClass

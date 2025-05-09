@@ -25,7 +25,7 @@ public class WatchOnlyDMTest {
     private final DataManager<String, String> dataManager = DataManager.Builder
             .get("包含测试", s -> "ok")
             .withCache(cacheStorage)
-            .logger(new ConsoleLogger())
+            .logger(new ConsoleLogger<>())
             .build();
 
     @Test
@@ -69,11 +69,13 @@ public class WatchOnlyDMTest {
     private Future<?> exe(Holder<String> holder, int i) {
         return SERVICE.submit(() -> {
             try {
-                holder.get("123", 2, TimeUnit.SECONDS);
+                return holder.get("123", 2, TimeUnit.SECONDS);
             } catch (Exception e) {
                 System.out.println(e.getMessage());
+                return null;
+            } finally {
+                System.out.println("结束:" + i);
             }
-            System.out.println("结束:" + i);
         });
     }
 
@@ -155,16 +157,5 @@ public class WatchOnlyDMTest {
             final Condition condition = lock.newCondition();
         }
     }
-
-    private void action(int i) {
-        try {
-            System.out.println(i + "开始");
-            Thread.sleep(1000);
-            System.out.println(i + "结束");
-        } catch (Exception e) {
-            System.out.println("err:" + e.getMessage());
-        }
-    }
-
 }
 

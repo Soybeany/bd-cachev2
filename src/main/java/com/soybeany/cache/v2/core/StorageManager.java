@@ -7,10 +7,7 @@ import com.soybeany.cache.v2.contract.user.IDatasource;
 import com.soybeany.cache.v2.contract.user.IOnInvalidListener;
 import com.soybeany.cache.v2.exception.NoCacheException;
 import com.soybeany.cache.v2.exception.NoDataSourceException;
-import com.soybeany.cache.v2.model.DataContext;
-import com.soybeany.cache.v2.model.DataCore;
-import com.soybeany.cache.v2.model.DataPack;
-import com.soybeany.cache.v2.model.DataParam;
+import com.soybeany.cache.v2.model.*;
 
 import java.util.*;
 import java.util.function.Consumer;
@@ -24,7 +21,7 @@ class StorageManager<Param, Data> {
     private final LinkedList<ICacheStorage<Param, Data>> storages = new LinkedList<>();
     private final Set<IOnInvalidListener<Param>> onInvalidListeners = new HashSet<>();
 
-    private DataContext context;
+    private DataContext<Param> context;
     private ICheckHolder<Param, Data> checkerHolder = (param, supplier) -> supplier.get();
     private boolean enableRenewExpiredCache;
 
@@ -103,7 +100,7 @@ class StorageManager<Param, Data> {
         this.enableRenewExpiredCache = enableRenewExpiredCache;
     }
 
-    public void init(DataContext context) {
+    public void init(DataContext<Param> context) {
         this.context = context;
         if (storages.isEmpty()) {
             return;
@@ -220,37 +217,22 @@ class StorageManager<Param, Data> {
     }
 
     private <T> T exeWithLock(ICacheStorage<Param, Data> storage, DataParam<Param> param, Supplier<T> callback, Function<RuntimeException, T> onException) {
-        return onExeWithLockAuto(storage, locker -> tryLock(locker, param), (locker, lock) -> unlock(locker, param, lock), callback, onException);
+        return onExeWithLockAuto(storage, lockHelper -> lockHelper.tryLock(param), (lockHelper, lock) -> lockHelper.unlock(param, lock), callback, onException);
+    }
+
+    private <T> T exeWithLockBatch(ICacheStorage<Param, Data> storage, Collection<DataParam<Param>> params, Supplier<T> callback) {
+        return onExeWithLockAuto(storage, lockHelper -> lockHelper.tryLockBatch(params), LockHelper::unlockBatch, callback, getOnException());
+    }
+
+    private void exeWithLockAll(ICacheStorage<Param, Data> storage, Runnable callback) {
+        onExeWithLockAuto(storage, LockHelper::tryLockAll, LockHelper::unlockAll, toFunc(callback), getOnException());
     }
 
     @SuppressWarnings("unchecked")
-    private <T, L> T exeWithLockBatch(ICacheStorage<Param, Data> storage, Collection<DataParam<Param>> params, Supplier<T> callback) {
-        return onExeWithLockAuto(storage, locker -> tryLockBatch(locker, params), (locker, locks) -> unlockBatch((ILockSupport<Param, L>) locker, (Map<DataParam<Param>, L>) locks), callback, getOnException());
-    }
-
-    private <L> void exeWithLockAll(ICacheStorage<Param, Data> storage, Runnable callback) {
-        onExeWithLockAuto(storage, locker -> {
-            try {
-                locker.onTryLockAll();
-                return null;
-            } catch (RuntimeException e) {
-                context.logger.onLockException(null, e);
-                throw e;
-            }
-        }, (locker, o) -> {
-            try {
-                locker.onUnlockAll();
-            } catch (RuntimeException e) {
-                context.logger.onLockException(null, e);
-            }
-        }, toFunc(callback), getOnException());
-    }
-
-    @SuppressWarnings("unchecked")
-    private <L, T> T onExeWithLockAuto(ICacheStorage<Param, Data> storage, ICallback3<Param, L> onLock, ICallback4<Param, L> onUnlock, Supplier<T> callback, Function<RuntimeException, T> onException) {
+    private <L, AL, T, K> T onExeWithLockAuto(ICacheStorage<Param, Data> storage, ICallback3<Param, L, AL, K> onLock, ICallback4<Param, L, AL, K> onUnlock, Supplier<T> callback, Function<RuntimeException, T> onException) {
         if (storage instanceof ILockSupport) {
-            ILockSupport<Param, L> locker = (ILockSupport<Param, L>) storage;
-            return onExeWithLock(() -> onLock.onInvoke(locker), lock -> onUnlock.onInvoke(locker, lock), callback, onException);
+            LockHelper<Param, L, AL> lockHelper = new LockHelper<>(context, (ILockSupport<Param, L, AL>) storage);
+            return onExeWithLock(() -> onLock.onInvoke(lockHelper), lock -> onUnlock.onInvoke(lockHelper, lock), callback, onException);
         } else {
             return onExe(callback, onException);
         }
@@ -272,47 +254,12 @@ class StorageManager<Param, Data> {
         }
     }
 
-    private <L, T> T onExe(Supplier<T> callback, Function<RuntimeException, T> onException) {
+    private <T> T onExe(Supplier<T> callback, Function<RuntimeException, T> onException) {
         // 执行数据获取逻辑
         try {
             return callback.get();
         } catch (RuntimeException e) {
             return onException.apply(e);
-        }
-    }
-
-    private <L> Map<DataParam<Param>, L> tryLockBatch(ILockSupport<Param, L> locker, Collection<DataParam<Param>> params) {
-        Map<DataParam<Param>, L> locking = new HashMap<>();
-        for (DataParam<Param> param : params) {
-            try {
-                L lock = tryLock(locker, param);
-                locking.put(param, lock);
-            } catch (RuntimeException e) {
-                unlockBatch(locker, locking);
-                throw e;
-            }
-        }
-        return locking;
-    }
-
-    private <L> void unlockBatch(ILockSupport<Param, L> locker, Map<DataParam<Param>, L> locking) {
-        locking.forEach((param, lock) -> unlock(locker, param, lock));
-    }
-
-    private <L> L tryLock(ILockSupport<Param, L> locker, DataParam<Param> param) {
-        try {
-            return locker.onTryLock(param);
-        } catch (RuntimeException e) {
-            context.logger.onLockException(param, e);
-            throw e;
-        }
-    }
-
-    private <L> void unlock(ILockSupport<Param, L> locker, DataParam<Param> param, L lock) {
-        try {
-            locker.onUnlock(lock);
-        } catch (RuntimeException e) {
-            context.logger.onLockException(param, e);
         }
     }
 
@@ -343,12 +290,12 @@ class StorageManager<Param, Data> {
         void onInvoke(ICacheStorage<Param, Data> storage);
     }
 
-    private interface ICallback3<Param, L> {
-        L onInvoke(ILockSupport<Param, L> locker);
+    private interface ICallback3<Param, L, AL, K> {
+        K onInvoke(LockHelper<Param, L, AL> locker);
     }
 
-    private interface ICallback4<Param, L> {
-        void onInvoke(ILockSupport<Param, L> locker, L lock);
+    private interface ICallback4<Param, L, AL, K> {
+        void onInvoke(LockHelper<Param, L, AL> locker, K lock);
     }
 
     private interface ICheckHolder<Param, Data> {

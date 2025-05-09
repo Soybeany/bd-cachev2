@@ -25,7 +25,7 @@ public class WatchOnlyDMTest {
     private final DataManager<String, String> dataManager = DataManager.Builder
             .get("包含测试", s -> "ok")
             .withCache(cacheStorage)
-            .logger(new ConsoleLogger<>())
+            .logger(new ConsoleLogger())
             .build();
 
     @Test

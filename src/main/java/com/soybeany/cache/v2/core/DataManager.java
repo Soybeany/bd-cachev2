@@ -29,19 +29,27 @@ import java.util.function.Function;
 @SuppressWarnings({"UnusedReturnValue", "unused"})
 public class DataManager<Param, Data> {
 
-    private final DataContext<Param> context;
+    private final DataContext context;
     private final IDatasource<Param, Data> defaultDatasource;
     private final StorageManager<Param, Data> storageManager;
+    private final IKeyConverter<Param> paramDescConverter;
+    private final IKeyConverter<Param> paramKeyConverter;
 
     // ***********************管理****************************
 
-    private DataManager(DataContext<Param> context, IDatasource<Param, Data> defaultDatasource, StorageManager<Param, Data> storageManager) {
+    private DataManager(DataContext context,
+                        IDatasource<Param, Data> defaultDatasource,
+                        StorageManager<Param, Data> storageManager,
+                        IKeyConverter<Param> paramDescConverter,
+                        IKeyConverter<Param> paramKeyConverter) {
         this.context = context;
         this.defaultDatasource = defaultDatasource;
         this.storageManager = storageManager;
+        this.paramDescConverter = paramDescConverter;
+        this.paramKeyConverter = paramKeyConverter;
     }
 
-    public DataContext<Param> dataContext() {
+    public DataContext dataContext() {
         return context;
     }
 
@@ -84,7 +92,7 @@ public class DataManager<Param, Data> {
      * 获得数据(数据包方式)
      */
     public DataPack<Data> getDataPack(Param param, IDatasource<Param, Data> datasource, boolean needStore) {
-        DataParam<Param> dataParam = context.toDataParam(param);
+        DataParam<Param> dataParam = toDataParam(param);
         DataPack<Data> pack = storageManager.getDataPack(dataParam, datasource, needStore);
         // 记录日志
         context.logger.onGetData(dataParam, pack, needStore);
@@ -97,7 +105,7 @@ public class DataManager<Param, Data> {
     public DataPack<Data> getDataPackDirectly(Param param) {
         DataPack<Data> pack = StorageManager.getDataDirectly(this, param, defaultDatasource);
         // 记录日志
-        context.logger.onGetData(context.toDataParam(param), pack, false);
+        context.logger.onGetData(toDataParam(param), pack, false);
         return pack;
     }
 
@@ -140,7 +148,7 @@ public class DataManager<Param, Data> {
      * 失效指定存储器中指定key的缓存
      */
     public void invalidCache(Param param, int... storageIndexes) {
-        DataParam<Param> dataParam = context.toDataParam(param);
+        DataParam<Param> dataParam = toDataParam(param);
         storageManager.invalidCache(dataParam, storageIndexes);
         // 记录日志
         context.logger.onInvalidCache(dataParam, storageIndexes);
@@ -159,7 +167,7 @@ public class DataManager<Param, Data> {
      * 移除指定存储器中指定key的缓存
      */
     public void removeCache(Param param, int... storageIndexes) {
-        DataParam<Param> dataParam = context.toDataParam(param);
+        DataParam<Param> dataParam = toDataParam(param);
         storageManager.removeCache(dataParam, storageIndexes);
         // 记录日志
         context.logger.onRemoveCache(dataParam, storageIndexes);
@@ -178,7 +186,7 @@ public class DataManager<Param, Data> {
      * 指定的缓存是否存在
      */
     public boolean containCache(Param param) {
-        DataParam<Param> dataParam = context.toDataParam(param);
+        DataParam<Param> dataParam = toDataParam(param);
         boolean exist = true;
         try {
             storageManager.getDataPack(dataParam, null, false).getData();
@@ -196,14 +204,20 @@ public class DataManager<Param, Data> {
      * @return 缓存是否需要更新
      */
     public boolean checkCache(Param param, ICacheChecker<Param, Data> checker) {
-        DataParam<Param> dataParam = context.toDataParam(param);
+        DataParam<Param> dataParam = toDataParam(param);
         return storageManager.checkCache(dataParam, checker);
     }
 
     // ********************内部方法********************
 
+    private DataParam<Param> toDataParam(Param param) {
+        String paramDesc = paramDescConverter.getKey(param);
+        String paramKey = paramKeyConverter.getKey(param);
+        return new DataParam<>(paramDesc, paramKey, param);
+    }
+
     private void innerCacheData(Param param, DataCore<Data> dataCore) {
-        DataParam<Param> dataParam = context.toDataParam(param);
+        DataParam<Param> dataParam = toDataParam(param);
         DataPack<Data> pack = new DataPack<>(dataCore, this, Long.MAX_VALUE);
         storageManager.cacheData(dataParam, pack);
         // 记录日志
@@ -213,7 +227,7 @@ public class DataManager<Param, Data> {
     private void innerBatchCacheData(Map<Param, DataCore<Data>> dataCores) {
         Map<DataParam<Param>, DataPack<Data>> dataPacks = new HashMap<>();
         dataCores.forEach((param, dataCore) ->
-                dataPacks.put(context.toDataParam(param), new DataPack<>(dataCore, this, Long.MAX_VALUE))
+                dataPacks.put(toDataParam(param), new DataPack<>(dataCore, this, Long.MAX_VALUE))
         );
         storageManager.batchCacheData(dataPacks);
         // 记录日志
@@ -233,8 +247,7 @@ public class DataManager<Param, Data> {
 
         private IKeyConverter<Param> paramDescConverter;
 
-        private ILogger<Param> logger = new ILogger<Param>() {
-        };
+        private ILogger logger = ILogger.SKIP;
 
         public static <Data> Builder<String, Data> get(String dataDesc, IDatasource<String, Data> datasource) {
             return new Builder<>(dataDesc, datasource, new IKeyConverter.Std());
@@ -273,7 +286,7 @@ public class DataManager<Param, Data> {
         /**
          * 若需要记录日志，则配置该logger
          */
-        public Builder<Param, Data> logger(ILogger<Param> logger) {
+        public Builder<Param, Data> logger(ILogger logger) {
             this.logger = logger;
             return this;
         }
@@ -324,11 +337,11 @@ public class DataManager<Param, Data> {
          * 构建出用于使用的实例
          */
         public DataManager<Param, Data> build() {
-            DataContext<Param> context = new DataContext<>(dataDesc, Optional.ofNullable(this.storageId).orElse(dataDesc), logger, paramDescConverter, paramKeyConverter);
+            DataContext context = new DataContext(dataDesc, Optional.ofNullable(this.storageId).orElse(dataDesc), logger);
             storageManager.init(context);
             logger.onInit(context);
             // 创建管理器实例
-            return new DataManager<>(context, defaultDatasource, storageManager);
+            return new DataManager<>(context, defaultDatasource, storageManager, paramDescConverter, paramKeyConverter);
         }
     }
 }

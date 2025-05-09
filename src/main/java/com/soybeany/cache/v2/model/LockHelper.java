@@ -8,10 +8,10 @@ import java.util.Map;
 
 public class LockHelper<Param, L, AL> {
 
-    private final DataContext<Param> context;
+    private final DataContext context;
     private final ILockSupport<Param, L, AL> lockSupport;
 
-    public LockHelper(DataContext<Param> context, ILockSupport<Param, L, AL> lockSupport) {
+    public LockHelper(DataContext context, ILockSupport<Param, L, AL> lockSupport) {
         this.context = context;
         this.lockSupport = lockSupport;
     }

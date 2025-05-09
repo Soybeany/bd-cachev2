@@ -21,7 +21,7 @@ class StorageManager<Param, Data> {
     private final LinkedList<ICacheStorage<Param, Data>> storages = new LinkedList<>();
     private final Set<IOnInvalidListener<Param>> onInvalidListeners = new HashSet<>();
 
-    private DataContext<Param> context;
+    private DataContext context;
     private ICheckHolder<Param, Data> checkerHolder = (param, supplier) -> supplier.get();
     private boolean enableRenewExpiredCache;
 
@@ -100,7 +100,7 @@ class StorageManager<Param, Data> {
         this.enableRenewExpiredCache = enableRenewExpiredCache;
     }
 
-    public void init(DataContext<Param> context) {
+    public void init(DataContext context) {
         this.context = context;
         if (storages.isEmpty()) {
             return;

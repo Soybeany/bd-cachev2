@@ -25,7 +25,7 @@ public class CacheWaitTest {
     private final DataManager<String, String> dataManager = DataManager.Builder
             .get("锁测试", datasource)
             .withCache(new TestStorage<>())
-            .logger(new ConsoleLogger<>())
+            .logger(new ConsoleLogger())
             .build();
 
     @Test

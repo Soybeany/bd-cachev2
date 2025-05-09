@@ -24,7 +24,7 @@ public class InvalidDMTest {
             .withCache(storage)
             .onInvalidListener((k, i) -> a++)
             .enableRenewExpiredCache(true)
-            .logger(new ConsoleLogger<>())
+            .logger(new ConsoleLogger())
             .build();
 
     @Test

@@ -28,7 +28,7 @@ public class MultiKeyDMTest {
                 return s;
             })
             .withCache(lruStorage)
-            .logger(new ConsoleLogger<>())
+            .logger(new ConsoleLogger())
             .build();
 
     @Test

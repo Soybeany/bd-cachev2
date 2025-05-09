@@ -31,7 +31,7 @@ public class SimpleDMTest {
     private final DataManager<String, String> dataManager = DataManager.Builder
             .get("简单测试", datasource)
             .withCache(lruStorage)
-            .logger(new ConsoleLogger<>())
+            .logger(new ConsoleLogger())
             .build();
 
     @Test
@@ -134,7 +134,7 @@ public class SimpleDMTest {
     @Test
     public void noCacheStorageTest() {
         DataManager<String, String> manager = DataManager.Builder.get("无缓存测试", datasource)
-                .logger(new ConsoleLogger<>())
+                .logger(new ConsoleLogger())
                 .build();
         DataPack<String> pack = manager.getDataPack("key1");
         assert datasource.equals(pack.provider);

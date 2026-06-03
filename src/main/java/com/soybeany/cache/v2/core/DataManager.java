@@ -92,6 +92,7 @@ public class DataManager<Param, Data> {
      * 获得数据(数据包方式)
      */
     public DataPack<Data> getDataPack(Param param, IDatasource<Param, Data> datasource, boolean needStore) {
+        context.logger.onStart();
         DataParam<Param> dataParam = toDataParam(param);
         DataPack<Data> pack = storageManager.getDataPack(dataParam, datasource, needStore);
         // 记录日志
@@ -103,6 +104,7 @@ public class DataManager<Param, Data> {
      * 直接从数据源获得数据(不使用缓存)
      */
     public DataPack<Data> getDataPackDirectly(Param param) {
+        context.logger.onStart();
         DataPack<Data> pack = StorageManager.getDataDirectly(this, param, defaultDatasource);
         // 记录日志
         context.logger.onGetData(toDataParam(param), pack, false);
@@ -113,6 +115,7 @@ public class DataManager<Param, Data> {
      * 缓存数据，手动模式管理
      */
     public void cacheData(Param param, Data data) {
+        context.logger.onStart();
         innerCacheData(param, DataCore.fromData(data));
     }
 
@@ -120,6 +123,7 @@ public class DataManager<Param, Data> {
      * 缓存异常，手动模式管理
      */
     public void cacheException(Param param, RuntimeException e) {
+        context.logger.onStart();
         innerCacheData(param, DataCore.fromException(e));
     }
 
@@ -134,6 +138,7 @@ public class DataManager<Param, Data> {
      * 批量缓存数据/异常，手动模式管理
      */
     public void batchCache(Map<Param, Data> data, Map<Param, RuntimeException> exceptions) {
+        context.logger.onStart();
         Map<Param, DataCore<Data>> dataCores = new HashMap<>();
         if (null != data) {
             data.forEach((k, v) -> dataCores.put(k, DataCore.fromData(v)));
@@ -148,6 +153,7 @@ public class DataManager<Param, Data> {
      * 失效指定存储器中指定key的缓存
      */
     public void invalidCache(Param param, int... storageIndexes) {
+        context.logger.onStart();
         DataParam<Param> dataParam = toDataParam(param);
         storageManager.invalidCache(dataParam, storageIndexes);
         // 记录日志
@@ -158,6 +164,7 @@ public class DataManager<Param, Data> {
      * 失效指定存储器中全部缓存
      */
     public void invalidAllCache(int... storageIndexes) {
+        context.logger.onStart();
         storageManager.invalidAllCache(storageIndexes);
         // 记录日志
         context.logger.onInvalidAllCache(storageIndexes);
@@ -167,6 +174,7 @@ public class DataManager<Param, Data> {
      * 移除指定存储器中指定key的缓存
      */
     public void removeCache(Param param, int... storageIndexes) {
+        context.logger.onStart();
         DataParam<Param> dataParam = toDataParam(param);
         storageManager.removeCache(dataParam, storageIndexes);
         // 记录日志
@@ -177,6 +185,7 @@ public class DataManager<Param, Data> {
      * 清除指定存储器中全部的缓存
      */
     public void clearCache(int... storageIndexes) {
+        context.logger.onStart();
         storageManager.clearCache(storageIndexes);
         // 记录日志
         context.logger.onClearCache(storageIndexes);
@@ -186,6 +195,7 @@ public class DataManager<Param, Data> {
      * 指定的缓存是否存在
      */
     public boolean containCache(Param param) {
+        context.logger.onStart();
         DataParam<Param> dataParam = toDataParam(param);
         boolean exist = true;
         try {

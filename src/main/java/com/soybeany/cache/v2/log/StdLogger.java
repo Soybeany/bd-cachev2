@@ -120,7 +120,7 @@ public class StdLogger implements ILogger {
         } else if (provider instanceof IDatasource) {
             return "数据源(" + (needStore ? "存储" : "只读") + ")";
         }
-        return "其它来源(" + provider + ")";
+        return "其它来源(" + provider.getClass().getSimpleName() + ")";
     }
 
     private String getDataDesc() {

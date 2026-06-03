@@ -24,6 +24,12 @@ public interface ILogger {
     }
 
     /**
+     * 方法开始的回调
+     */
+    default void onStart() {
+    }
+
+    /**
      * 获取数据时的回调
      */
     default <Param, Data> void onGetData(DataParam<Param> param, DataPack<Data> pack, boolean needStore) {

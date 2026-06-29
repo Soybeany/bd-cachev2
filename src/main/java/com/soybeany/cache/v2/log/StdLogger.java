@@ -31,6 +31,18 @@ public class StdLogger implements ILogger {
     }
 
     @Override
+    public <Param> void onGetCache(DataParam<Param> param, DataPack<?> pack) {
+        String from = getFrom(pack.provider, false);
+        String dataDesc = getDataDesc();
+        String paramDesc = getParamDesc(param);
+        if (pack.norm()) {
+            mWriter.onWriteInfo("“" + dataDesc + "”从“" + from + "”获取了“" + paramDesc + "”的缓存");
+        } else {
+            mWriter.onWriteWarn("“" + dataDesc + "”从“" + from + "”获取了“" + paramDesc + "”的缓存异常(" + getExceptionMsg(pack) + ")");
+        }
+    }
+
+    @Override
     public <Param, Data> void onGetData(DataParam<Param> param, DataPack<Data> pack, boolean needStore) {
         String from = getFrom(pack.provider, needStore);
         String dataDesc = getDataDesc();

@@ -101,6 +101,29 @@ public class DataManager<Param, Data> {
     }
 
     /**
+     * 获得当前缓存（即使已过期），不访问数据源
+     *
+     * @return 缓存数据，若无缓存则抛异常
+     */
+    public Data getCache(Param param) {
+        return getCacheDataPack(param).getData();
+    }
+
+    /**
+     * 获得当前缓存（即使已过期），不访问数据源
+     *
+     * @return 缓存数据包
+     */
+    public DataPack<Data> getCacheDataPack(Param param) {
+        context.logger.onStart();
+        DataParam<Param> dataParam = toDataParam(param);
+        DataPack<Data> pack = storageManager.getCacheDataPack(dataParam);
+        // 记录日志
+        context.logger.onGetCache(dataParam, pack);
+        return pack;
+    }
+
+    /**
      * 直接从数据源获得数据(不使用缓存)
      */
     public DataPack<Data> getDataPackDirectly(Param param) {

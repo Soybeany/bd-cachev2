@@ -116,6 +116,13 @@ class StorageManager<Param, Data> {
         return checkerHolder.getCheckedDataPack(param, () -> onGetDataPack(0, param, datasource, needStore, e -> new DataPack<>(DataCore.fromException(e), this, 0)));
     }
 
+    /**
+     * 获取当前缓存（即使已过期），不访问数据源
+     */
+    public DataPack<Data> getCacheDataPack(DataParam<Param> param) {
+        return onGetCacheDataPack(0, param);
+    }
+
     public void cacheData(DataParam<Param> param, DataPack<Data> dataPack) {
         traverseR((storage, prePack) -> exeWithLock(storage, param, () -> storage.onCacheData(param, prePack)), dataPack);
         checkerHolder.updateNextCheckTime(param);
@@ -206,6 +213,20 @@ class StorageManager<Param, Data> {
                 return dataPack;
             }
         }, onException);
+    }
+
+    private DataPack<Data> onGetCacheDataPack(int storageIndex, DataParam<Param> param) {
+        if (storageIndex >= storages.size()) {
+            return new DataPack<>(DataCore.fromException(new NoCacheException()), this, Long.MAX_VALUE);
+        }
+        ICacheStorage<Param, Data> storage = storages.get(storageIndex);
+        return exeWithLock(storage, param, () -> {
+            try {
+                return storage.onGetCacheIgnoreExpiry(param);
+            } catch (NoCacheException e) {
+                return onGetCacheDataPack(storageIndex + 1, param);
+            }
+        });
     }
 
     private void exeWithLock(ICacheStorage<Param, Data> storage, DataParam<Param> param, Runnable callback) {

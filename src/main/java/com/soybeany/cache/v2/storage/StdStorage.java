@@ -48,6 +48,13 @@ public abstract class StdStorage<Param, Data> implements ICacheStorage<Param, Da
     }
 
     @Override
+    public DataPack<Data> onGetCacheIgnoreExpiry(DataParam<Param> param) throws NoCacheException {
+        String key = getStorageKey(param);
+        CacheEntity<Data> cacheEntity = onLoadCacheEntity(param, key);
+        return CacheEntity.toDataPack(cacheEntity, this, onGetCurTimestamp());
+    }
+
+    @Override
     public DataPack<Data> onCacheData(DataParam<Param> param, DataPack<Data> dataPack) {
         String key = getStorageKey(param);
         // 若不支持缓存刷新，则不作额外处理

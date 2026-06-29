@@ -36,6 +36,12 @@ public interface ILogger {
     }
 
     /**
+     * 获取当前缓存（无论是否过期）时的回调
+     */
+    default <Param> void onGetCache(DataParam<Param> param, DataPack<?> pack) {
+    }
+
+    /**
      * 缓存数据时的回调
      */
     default <Param, Data> void onCacheData(DataParam<Param> param, DataPack<Data> pack) {

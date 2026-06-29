@@ -48,6 +48,16 @@ public interface ICacheStorage<Param, Data> {
     DataPack<Data> onGetCache(DataParam<Param> param) throws NoCacheException;
 
     /**
+     * 获取缓存（不检查是否过期）
+     *
+     * @param param 入参信息
+     * @return 数据
+     */
+    default DataPack<Data> onGetCacheIgnoreExpiry(DataParam<Param> param) throws NoCacheException {
+        return onGetCache(param);
+    }
+
+    /**
      * 缓存数据
      *
      * @param param    入参信息

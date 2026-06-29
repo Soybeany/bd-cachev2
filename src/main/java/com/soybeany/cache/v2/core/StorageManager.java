@@ -5,9 +5,18 @@ import com.soybeany.cache.v2.contract.frame.ILockSupport;
 import com.soybeany.cache.v2.contract.user.ICacheChecker;
 import com.soybeany.cache.v2.contract.user.IDatasource;
 import com.soybeany.cache.v2.contract.user.IOnInvalidListener;
+import com.soybeany.cache.v2.exception.CacheWaitException;
 import com.soybeany.cache.v2.exception.NoCacheException;
 import com.soybeany.cache.v2.exception.NoDataSourceException;
 import com.soybeany.cache.v2.model.*;
+import com.soybeany.cache.v2.storage.ReentrantLockSupport;
+
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import java.util.*;
 import java.util.function.Consumer;
@@ -24,15 +33,37 @@ class StorageManager<Param, Data> {
     private DataContext context;
     private ICheckHolder<Param, Data> checkerHolder = (param, supplier) -> supplier.get();
     private boolean enableRenewExpiredCache;
+    private long datasourceTimeout = ReentrantLockSupport.LOCK_WAIT_TIME_DEFAULT;
+    private static final ExecutorService DATASOURCE_EXECUTOR = Executors.newCachedThreadPool(r -> {
+        Thread t = new Thread(r, "bd-cache-ds");
+        t.setDaemon(true);
+        return t;
+    });
 
-    public static <Param, Data> DataPack<Data> getDataDirectly(Object noDatasourceInvoker, Param param, IDatasource<Param, Data> datasource) {
+    public static <Param, Data> DataPack<Data> getDataDirectly(Object noDatasourceInvoker, Param param, IDatasource<Param, Data> datasource, long timeoutMs) {
         // 没有指定数据源
         if (null == datasource) {
             return new DataPack<>(DataCore.fromException(new NoDataSourceException()), noDatasourceInvoker, Long.MAX_VALUE);
         }
-        // 正常执行
+        // 异步执行+超时
         try {
-            Data data = datasource.onGetData(param);
+            Future<Data> future = DATASOURCE_EXECUTOR.submit(() -> datasource.onGetData(param));
+            Data data;
+            try {
+                data = future.get(timeoutMs, TimeUnit.MILLISECONDS);
+            } catch (TimeoutException e) {
+                future.cancel(true);
+                throw new CacheWaitException("数据源访问超时");
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new CacheWaitException("数据源访问中断");
+            } catch (ExecutionException e) {
+                Throwable cause = e.getCause();
+                if (cause instanceof RuntimeException) {
+                    throw (RuntimeException) cause;
+                }
+                throw new RuntimeException(cause);
+            }
             return new DataPack<>(DataCore.fromData(data), datasource, datasource.onSetupExpiry(param, data));
         } catch (RuntimeException e) {
             return new DataPack<>(DataCore.fromException(e), datasource, datasource.onSetupExpiry(param, e));
@@ -98,6 +129,14 @@ class StorageManager<Param, Data> {
 
     public void enableRenewExpiredCache(boolean enableRenewExpiredCache) {
         this.enableRenewExpiredCache = enableRenewExpiredCache;
+    }
+
+    public void setDatasourceTimeout(long datasourceTimeout) {
+        this.datasourceTimeout = datasourceTimeout;
+    }
+
+    public long getDatasourceTimeout() {
+        return datasourceTimeout;
     }
 
     public void init(DataContext context) {
@@ -195,7 +234,7 @@ class StorageManager<Param, Data> {
     private DataPack<Data> onGetDataPack(int storageIndex, DataParam<Param> param, IDatasource<Param, Data> datasource, boolean needStore, Function<RuntimeException, DataPack<Data>> onException) {
         // 若超出storages边界，则访问数据源
         if (storageIndex >= storages.size()) {
-            return getDataDirectly(this, param.value, datasource);
+            return getDataDirectly(this, param.value, datasource, datasourceTimeout);
         }
 
         ICacheStorage<Param, Data> storage = storages.get(storageIndex);

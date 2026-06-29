@@ -128,7 +128,7 @@ public class DataManager<Param, Data> {
      */
     public DataPack<Data> getDataPackDirectly(Param param) {
         context.logger.onStart();
-        DataPack<Data> pack = StorageManager.getDataDirectly(this, param, defaultDatasource);
+        DataPack<Data> pack = StorageManager.getDataDirectly(this, param, defaultDatasource, storageManager.getDatasourceTimeout());
         // 记录日志
         context.logger.onGetData(toDataParam(param), pack, false);
         return pack;
@@ -329,6 +329,15 @@ public class DataManager<Param, Data> {
          */
         public Builder<Param, Data> enableRenewExpiredCache(boolean flag) {
             storageManager.enableRenewExpiredCache(flag);
+            return this;
+        }
+
+        /**
+         * 配置数据源访问超时(毫秒)
+         * <br>* 默认值为30秒({@link com.soybeany.cache.v2.storage.ReentrantLockSupport#LOCK_WAIT_TIME_DEFAULT})
+         */
+        public Builder<Param, Data> datasourceTimeout(long timeoutMs) {
+            storageManager.setDatasourceTimeout(timeoutMs);
             return this;
         }
 

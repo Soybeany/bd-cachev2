@@ -399,6 +399,27 @@ public class DataManager<Param, Data> {
         }
 
         /**
+         * 配置数据获取锁（fetch lock）的单key超时
+         * <br>* 用于防止多个线程同时请求同一key的数据时，某个线程持锁过久
+         * <br>* 默认值为30秒({@link com.soybeany.cache.v2.storage.ReentrantLockSupport#LOCK_WAIT_TIME_DEFAULT})
+         */
+        @SuppressWarnings("unused")
+        public Builder<Param, Data> fetchLockTimeout(Function<String, Long> supplier) {
+            storageManager.setFetchLockTimeoutSingleSupplier(supplier);
+            return this;
+        }
+
+        /**
+         * 配置数据获取锁（fetch lock）的全局超时
+         * <br>* 默认值为30秒({@link com.soybeany.cache.v2.storage.ReentrantLockSupport#LOCK_WAIT_TIME_DEFAULT})
+         */
+        @SuppressWarnings("unused")
+        public Builder<Param, Data> fetchLockTimeoutAll(long millis) {
+            storageManager.setFetchLockTimeoutAll(millis);
+            return this;
+        }
+
+        /**
          * 启用数据检查
          *
          * @param intervalSupplier 检查间隔提供者(单位：毫秒)

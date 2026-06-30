@@ -20,6 +20,8 @@ import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
+import static com.soybeany.cache.v2.storage.ReentrantLockSupport.LOCK_WAIT_TIME_DEFAULT;
+
 class StorageManager<Param, Data> {
 
     private final LinkedList<ICacheStorage<Param, Data>> storages = new LinkedList<>();
@@ -28,9 +30,11 @@ class StorageManager<Param, Data> {
     private DataContext context;
     private ICheckHolder<Param, Data> checkerHolder = (param, supplier) -> supplier.get();
     private boolean enableRenewExpiredCache;
-    private final ReentrantLockSupport fetchLockSupport = new ReentrantLockSupport("fetch");
+    private ReentrantLockSupport fetchLockSupport;
+    private Function<String, Long> fetchLockTimeoutSingleSupplier;
+    private long fetchLockTimeoutAll = LOCK_WAIT_TIME_DEFAULT;
 
-    private long datasourceTimeout = ReentrantLockSupport.LOCK_WAIT_TIME_DEFAULT;
+    private long datasourceTimeout = LOCK_WAIT_TIME_DEFAULT;
 
     static final long DEFAULT_QUICK_TIMEOUT_MS = 2000L;
     private static final ExecutorService DATASOURCE_EXECUTOR = Executors.newCachedThreadPool(r -> {
@@ -138,8 +142,17 @@ class StorageManager<Param, Data> {
         return datasourceTimeout;
     }
 
+    public void setFetchLockTimeoutSingleSupplier(Function<String, Long> fetchLockTimeoutSingleSupplier) {
+        this.fetchLockTimeoutSingleSupplier = fetchLockTimeoutSingleSupplier;
+    }
+
+    public void setFetchLockTimeoutAll(long fetchLockTimeoutAll) {
+        this.fetchLockTimeoutAll = fetchLockTimeoutAll;
+    }
+
     public void init(DataContext context) {
         this.context = context;
+        fetchLockSupport = new ReentrantLockSupport("fetch", fetchLockTimeoutSingleSupplier, fetchLockTimeoutAll);
         if (storages.isEmpty()) {
             return;
         }

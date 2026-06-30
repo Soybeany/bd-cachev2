@@ -26,6 +26,7 @@ public class CacheWaitTest {
             .get("锁测试", datasource)
             .withCache(new TestStorage<>())
             .logger(new ConsoleLogger())
+            .fetchLockTimeout(p -> 1000L)
             .build();
 
     @Test

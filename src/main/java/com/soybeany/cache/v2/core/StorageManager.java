@@ -36,7 +36,7 @@ class StorageManager<Param, Data> {
     private long datasourceTimeout = ReentrantLockSupport.LOCK_WAIT_TIME_DEFAULT;
 
     static final long DEFAULT_QUICK_TIMEOUT_MS = 2000L;
-    private static final Object FALLBACK_PROVIDER = new Object();
+    private static final String FALLBACK_KEY_SUFFIX = ":fallback";
 
     private static final ExecutorService DATASOURCE_EXECUTOR = Executors.newCachedThreadPool(r -> {
         Thread t = new Thread(r, "bd-cache-ds");
@@ -162,9 +162,31 @@ class StorageManager<Param, Data> {
     /**
      * 获取数据并自动缓存(短超时回退模式)
      * <br>使用短超时访问数据源，超时后回退到过期缓存
+     * <br>使用不同的key存储回退缓存，与主缓存路径隔离
      */
     public DataPack<Data> getDataPackWithCacheFallback(DataParam<Param> param, IDatasource<Param, Data> datasource, boolean needStore, long quickTimeoutMs, Function<DataPack<Data>, DataPack<Data>> fallbackProcessor) {
-        return checkerHolder.getCheckedDataPack(param, () -> onGetDataPackWithFallback(0, param, datasource, needStore, quickTimeoutMs, fallbackProcessor));
+        // 1. 获取回退缓存(使用独立key，与主流程隔离)
+        DataParam<Param> fallbackParam = toFallbackParam(param);
+        DataPack<Data> expiredCache = getExpiredCacheForFallback(0, fallbackParam, quickTimeoutMs);
+        // 2. 异步获取新鲜数据(完整超时)
+        Future<DataPack<Data>> future = DATASOURCE_EXECUTOR.submit(() ->
+                getDataPack(param, datasource, needStore)
+        );
+        // 3. 短超时等待
+        try {
+            return future.get(quickTimeoutMs, TimeUnit.MILLISECONDS);
+        } catch (TimeoutException e) {
+            return fallbackProcessor.apply(expiredCache);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return fallbackProcessor.apply(expiredCache);
+        } catch (ExecutionException e) {
+            Throwable cause = e.getCause();
+            if (cause instanceof RuntimeException) {
+                throw (RuntimeException) cause;
+            }
+            throw new RuntimeException(cause);
+        }
     }
 
     /**
@@ -266,53 +288,72 @@ class StorageManager<Param, Data> {
         }, onException);
     }
 
-    /**
-     * 获取数据(短超时回退模式)
-     * <br>使用短超时访问数据源，超时后回退到过期缓存(不进行缓存回写)
-     */
-    private DataPack<Data> onGetDataPackWithFallback(int storageIndex, DataParam<Param> param, IDatasource<Param, Data> datasource, boolean needStore, long quickTimeoutMs, Function<DataPack<Data>, DataPack<Data>> fallbackProcessor) {
-        // 若超出storages边界，则访问数据源
-        if (storageIndex >= storages.size()) {
-            DataPack<Data> pack = getDataDirectly(this, param.value, datasource, quickTimeoutMs);
-            // 数据源超时，使用回退策略
-            if (!pack.dataCore.norm && pack.dataCore.exception instanceof CacheWaitException) {
-                DataPack<Data> expiredCache = onGetCacheDataPack(0, param);
-                DataPack<Data> fallbackResult = fallbackProcessor.apply(expiredCache);
-                // 使用FALLBACK_PROVIDER标记，避免上层缓存回写
-                return new DataPack<>(fallbackResult.dataCore, FALLBACK_PROVIDER, 0);
-            }
-            return pack;
-        }
-
-        ICacheStorage<Param, Data> storage = storages.get(storageIndex);
-        return exeWithLock(storage, param, () -> {
-            try {
-                // 从当前storage获取数据
-                return storage.onGetCache(param);
-            } catch (NoCacheException e) {
-                // 从下一storage获取数据
-                DataPack<Data> dataPack = onGetDataPackWithFallback(storageIndex + 1, param, datasource, needStore, quickTimeoutMs, fallbackProcessor);
-                // 按需缓存数据(跳过回退结果)
-                if (needStore && dataPack.provider != FALLBACK_PROVIDER) {
-                    dataPack = storage.onCacheData(param, dataPack);
-                }
-                return dataPack;
-            }
-        });
-    }
-
     private DataPack<Data> onGetCacheDataPack(int storageIndex, DataParam<Param> param) {
         if (storageIndex >= storages.size()) {
-            return new DataPack<>(DataCore.fromException(new NoCacheException()), this, Long.MAX_VALUE);
+            return new DataPack<>(DataCore.fromException(new NoCacheException()), this, 0L);
         }
         ICacheStorage<Param, Data> storage = storages.get(storageIndex);
         return exeWithLock(storage, param, () -> {
             try {
                 return storage.onGetCacheIgnoreExpiry(param);
             } catch (NoCacheException e) {
-                return onGetCacheDataPack(storageIndex + 1, param);
+                DataPack<Data> dataPack = onGetCacheDataPack(storageIndex + 1, param);
+                dataPack = storage.onCacheData(param, dataPack);
+                return dataPack;
             }
         });
+    }
+
+    // ************************回退缓存相关方法************************
+
+    private DataParam<Param> toFallbackParam(DataParam<Param> param) {
+        return new DataParam<>(param.paramDesc, param.paramKey + FALLBACK_KEY_SUFFIX, param.value);
+    }
+
+    /**
+     * 获取过期的缓存数据(使用回退key)，支持缓存回写和穿透保护
+     */
+    private DataPack<Data> getExpiredCacheForFallback(int storageIndex, DataParam<Param> param, long quickTimeoutMs) {
+        if (storageIndex >= storages.size()) {
+            return new DataPack<>(DataCore.fromException(new NoCacheException()), this, Long.MAX_VALUE);
+        }
+        ICacheStorage<Param, Data> storage = storages.get(storageIndex);
+        return exeWithLock(storage, param, () -> {
+            try {
+                // 尝试获取有效缓存(含穿透保护的NoCacheException标记)
+                DataPack<Data> cached = storage.onGetCache(param);
+                return cached;
+            } catch (NoCacheException e) {
+                try {
+                    // 尝试获取已过期的缓存
+                    DataPack<Data> expired = storage.onGetCacheIgnoreExpiry(param);
+                    if (expired.dataCore.exception instanceof NoCacheException) {
+                        // 穿透保护标记已过期，继续向下查找
+                        DataPack<Data> dataPack = getExpiredCacheForFallback(storageIndex + 1, param, quickTimeoutMs);
+                        return handleCacheBack(storage, param, dataPack, quickTimeoutMs);
+                    }
+                    // 找到过期数据，缓存回写当前层
+                    return storage.onCacheData(param, expired);
+                } catch (NoCacheException e2) {
+                    // 当前层无任何记录，继续向下查找
+                    DataPack<Data> dataPack = getExpiredCacheForFallback(storageIndex + 1, param, quickTimeoutMs);
+                    return handleCacheBack(storage, param, dataPack, quickTimeoutMs);
+                }
+            }
+        });
+    }
+
+    /**
+     * 处理缓存回写，含穿透保护
+     */
+    private DataPack<Data> handleCacheBack(ICacheStorage<Param, Data> storage, DataParam<Param> param, DataPack<Data> dataPack, long quickTimeoutMs) {
+        if (dataPack.dataCore.exception instanceof NoCacheException) {
+            // 穿透保护：缓存"无数据"状态，有效期quickTimeoutMs
+            DataPack<Data> noCachePack = new DataPack<>(dataPack.dataCore, this, quickTimeoutMs);
+            return storage.onCacheData(param, noCachePack);
+        }
+        // 正常回写数据
+        return storage.onCacheData(param, dataPack);
     }
 
     private void exeWithLock(ICacheStorage<Param, Data> storage, DataParam<Param> param, Runnable callback) {

@@ -14,6 +14,8 @@ import java.lang.ref.WeakReference;
 import java.lang.reflect.Type;
 import java.util.*;
 import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Function;
 
 /**
@@ -26,6 +28,7 @@ public class LruMemCacheStorage<Param, Data> extends StdStorage<Param, Data> imp
     private final ILockSupport<Lock, Object> locker;
     private final MapStorage<Data> mapStorage;
     private final Type deppCopyType;
+    private final ReadWriteLock rwLock = new ReentrantReadWriteLock();
 
     public LruMemCacheStorage(long pTtl, long pTtlErr, int capacity) {
         this(pTtl, pTtlErr, capacity, null);
@@ -52,48 +55,78 @@ public class LruMemCacheStorage<Param, Data> extends StdStorage<Param, Data> imp
     }
 
     @Override
-    public synchronized void onInvalidAllCache() {
-        Set<String> keys = new HashSet<>(mapStorage.getMap().keySet());
-        keys.forEach(key -> mapStorage.onLoad(key).ifPresent(entity -> mapStorage.onSave(key, new CacheEntity<>(entity.dataCore, 0))));
+    public void onInvalidAllCache() {
+        rwLock.writeLock().lock();
+        try {
+            Set<String> keys = new HashSet<>(mapStorage.getMap().keySet());
+            keys.forEach(key -> mapStorage.onLoad(key).ifPresent(entity -> mapStorage.onSave(key, new CacheEntity<>(entity.dataCore, 0))));
+        } finally {
+            rwLock.writeLock().unlock();
+        }
     }
 
     @Override
-    public synchronized void onClearCache() {
-        mapStorage.getMap().clear();
+    public void onClearCache() {
+        rwLock.writeLock().lock();
+        try {
+            mapStorage.getMap().clear();
+        } finally {
+            rwLock.writeLock().unlock();
+        }
     }
 
     @Override
     public int cachedDataCount() {
-        return mapStorage.getMap().size();
+        rwLock.readLock().lock();
+        try {
+            return mapStorage.getMap().size();
+        } finally {
+            rwLock.readLock().unlock();
+        }
     }
 
     @Override
-    protected synchronized CacheEntity<Data> onLoadCacheEntity(DataParam<Param> param, String storageKey) throws NoCacheException {
-        Optional<CacheEntity<Data>> entityOpt = mapStorage.onLoad(storageKey);
-        if (!entityOpt.isPresent()) {
-            throw new NoCacheException();
-        }
-        CacheEntity<Data> result = entityOpt.get();
-        if (null != deppCopyType) {
-            String coreJson = DataCore.toJson(result.dataCore);
-            try {
-                result = new CacheEntity<>(DataCore.fromJson(coreJson, deppCopyType), result.pExpireAt);
-            } catch (Exception e) {
-                throw new BdCacheException("LoadCache异常:" + e.getMessage());
+    protected CacheEntity<Data> onLoadCacheEntity(DataParam<Param> param, String storageKey) throws NoCacheException {
+        rwLock.readLock().lock();
+        try {
+            Optional<CacheEntity<Data>> entityOpt = mapStorage.onLoad(storageKey);
+            if (!entityOpt.isPresent()) {
+                throw new NoCacheException();
             }
+            CacheEntity<Data> result = entityOpt.get();
+            if (null != deppCopyType) {
+                String coreJson = DataCore.toJson(result.dataCore);
+                try {
+                    result = new CacheEntity<>(DataCore.fromJson(coreJson, deppCopyType), result.pExpireAt);
+                } catch (Exception e) {
+                    throw new BdCacheException("LoadCache异常:" + e.getMessage());
+                }
+            }
+            return result;
+        } finally {
+            rwLock.readLock().unlock();
         }
-        return result;
     }
 
     @Override
-    protected synchronized CacheEntity<Data> onSaveCacheEntity(DataParam<Param> param, String storageKey, CacheEntity<Data> entity) {
-        mapStorage.onSave(storageKey, entity);
-        return entity;
+    protected CacheEntity<Data> onSaveCacheEntity(DataParam<Param> param, String storageKey, CacheEntity<Data> entity) {
+        rwLock.writeLock().lock();
+        try {
+            mapStorage.onSave(storageKey, entity);
+            return entity;
+        } finally {
+            rwLock.writeLock().unlock();
+        }
     }
 
     @Override
     protected void onRemoveCacheEntity(DataParam<Param> param, String storageKey) {
-        mapStorage.getMap().remove(storageKey);
+        rwLock.writeLock().lock();
+        try {
+            mapStorage.getMap().remove(storageKey);
+        } finally {
+            rwLock.writeLock().unlock();
+        }
     }
 
     @Override
@@ -103,15 +136,25 @@ public class LruMemCacheStorage<Param, Data> extends StdStorage<Param, Data> imp
 
     @Override
     public long getNextCheckStamp(DataParam<Param> param) {
-        return mapStorage.onLoad(getStorageKey(param))
-                .map(entity -> entity.pNextCheckAt)
-                .orElse(0L);
+        rwLock.readLock().lock();
+        try {
+            return mapStorage.onLoad(getStorageKey(param))
+                    .map(entity -> entity.pNextCheckAt)
+                    .orElse(0L);
+        } finally {
+            rwLock.readLock().unlock();
+        }
     }
 
     @Override
     public void setNextCheckStamp(DataParam<Param> param, long stamp) {
-        mapStorage.onLoad(getStorageKey(param))
-                .ifPresent(entity -> entity.pNextCheckAt = stamp);
+        rwLock.writeLock().lock();
+        try {
+            mapStorage.onLoad(getStorageKey(param))
+                    .ifPresent(entity -> entity.pNextCheckAt = stamp);
+        } finally {
+            rwLock.writeLock().unlock();
+        }
     }
 
     @Override

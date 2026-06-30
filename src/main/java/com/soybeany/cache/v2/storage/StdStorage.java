@@ -36,11 +36,8 @@ public abstract class StdStorage<Param, Data> implements ICacheStorage<Param, Da
         String key = getStorageKey(param);
         CacheEntity<Data> cacheEntity = onLoadCacheEntity(param, key);
         long curTimestamp = onGetCurTimestamp();
-        // 若缓存中的数据过期，则移除数据后抛出无数据异常
+        // 若缓存中的数据过期，则抛出无数据异常（不删除，给 fallback 等场景保留回退的可能）
         if (cacheEntity.isExpired(curTimestamp)) {
-            if (!enableRenewExpiredCache) {
-                onRemoveCacheEntity(param, key);
-            }
             throw new NoCacheException();
         }
         // 返回数据

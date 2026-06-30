@@ -42,8 +42,8 @@ public class CacheFallbackDMTest {
     @Test
     public void fallback_数据源慢时回退到过期缓存() throws Exception {
         ICacheStorage<String, String> storage = new LruMemCacheStorage.Builder<String, String>().pTtl(200).build();
-        // 必须启用续期，否则异步线程的onGetCache会移除过期缓存，导致fallback找不到
-        DataManager<String, String> manager = createManagerWithRenew(storage, slowDatasource);
+        // 过期缓存不会被删除，fallback 可直接回退
+        DataManager<String, String> manager = createManager(storage, slowDatasource);
         String key = "fallback_key";
         // 用快速数据源写入缓存
         manager.getDataPack(key, fastDatasource);
@@ -52,6 +52,22 @@ public class CacheFallbackDMTest {
         // fallback调用，短超时应从过期缓存返回
         DataPack<String> pack = manager.getDataPackWithCacheFallback(key);
         // 应快速返回（远小于3秒的数据源耗时）
+        assert pack.norm() : "fallback应返回正常数据包";
+        assert "新数据".equals(pack.getData());
+    }
+
+    @Test
+    public void fallback_同时启用续期与回退() throws Exception {
+        ICacheStorage<String, String> storage = new LruMemCacheStorage.Builder<String, String>().pTtl(200).build();
+        // 同时启用续期和fallback，验证两者不冲突
+        DataManager<String, String> manager = createManagerWithRenew(storage, slowDatasource);
+        String key = "renew_and_fallback";
+        // 用快速数据源写入缓存
+        manager.getDataPack(key, fastDatasource);
+        // 等待缓存过期
+        Thread.sleep(250);
+        // fallback调用，应回退到过期缓存
+        DataPack<String> pack = manager.getDataPackWithCacheFallback(key);
         assert pack.norm() : "fallback应返回正常数据包";
         assert "新数据".equals(pack.getData());
     }

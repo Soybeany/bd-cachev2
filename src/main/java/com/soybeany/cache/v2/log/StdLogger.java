@@ -32,7 +32,7 @@ public class StdLogger implements ILogger {
 
     @Override
     public <Param> void onGetCache(DataParam<Param> param, DataPack<?> pack) {
-        String from = getFrom(pack.provider, false);
+        String from = getFrom(pack.provider, false) + "[" + (pack.pTtl > 0 ? "有效" : "过期") + "]";
         String dataDesc = getDataDesc();
         String paramDesc = getParamDesc(param);
         if (pack.norm()) {
@@ -45,6 +45,18 @@ public class StdLogger implements ILogger {
     @Override
     public <Param, Data> void onGetData(DataParam<Param> param, DataPack<Data> pack, boolean needStore) {
         String from = getFrom(pack.provider, needStore);
+        String dataDesc = getDataDesc();
+        String paramDesc = getParamDesc(param);
+        if (pack.norm()) {
+            mWriter.onWriteInfo("“" + dataDesc + "”从“" + from + "”获取了“" + paramDesc + "”的数据");
+        } else {
+            mWriter.onWriteInfo("“" + dataDesc + "”从“" + from + "”获取了“" + paramDesc + "”的异常(" + getExceptionMsg(pack) + ")");
+        }
+    }
+
+    @Override
+    public <Param, Data> void onGetDataWithCacheFallback(DataParam<Param> param, DataPack<Data> pack, boolean useFallback) {
+        String from = getFrom(pack.provider, true) + "[" + (useFallback ? "降级" : "有效") + "]";
         String dataDesc = getDataDesc();
         String paramDesc = getParamDesc(param);
         if (pack.norm()) {

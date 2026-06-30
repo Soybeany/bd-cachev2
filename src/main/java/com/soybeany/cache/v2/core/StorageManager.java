@@ -218,8 +218,8 @@ class StorageManager<Param, Data> {
     }
 
     public boolean checkCache(DataParam<Param> param, ICacheChecker<Param, Data> checker) {
-        DataPack<Data> dataPack = onGetDataPack(0, param, null, false, getOnException());
-        if (dataPack.dataCore.exception instanceof NoDataSourceException) {
+        DataPack<Data> dataPack = onGetCacheDataPack(0, param);
+        if (dataPack.dataCore.exception instanceof NoCacheException) {
             return false;
         }
         boolean needUpdate = needUpdate(checker, param, dataPack);
@@ -269,16 +269,16 @@ class StorageManager<Param, Data> {
                     } catch (NoCacheException ignored) {
                     }
                 }
-                DataPack<Data> dataPack = getDataDirectly(this, param.value, datasource, datasourceTimeout);
+                List<DataPack<Data>> dataPackHolder = new ArrayList<>();
+                dataPackHolder.add(getDataDirectly(this, param.value, datasource, datasourceTimeout));
                 // 在fetch锁内回写所有缓存层，释放锁后其他线程可直接读到
                 if (needStore) {
                     for (int i = storages.size() - 1; i >= 0; i--) {
                         ICacheStorage<Param, Data> s = storages.get(i);
-                        DataPack<Data> dp = dataPack;
-                        dataPack = exeWithLock(s, param, () -> s.onCacheData(param, dp), onException);
+                        exeWithLock(s, param, () -> dataPackHolder.set(0, s.onCacheData(param, dataPackHolder.get(0))), onException);
                     }
                 }
-                return dataPack;
+                return dataPackHolder.get(0);
             }, onException);
         }
 

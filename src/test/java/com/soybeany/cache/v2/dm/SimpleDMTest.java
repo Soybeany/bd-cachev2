@@ -101,7 +101,7 @@ public class SimpleDMTest {
         // 后续直接读取缓存
         assert lruStorage == dataManager.getDataPack(null).provider : "并发后应读取缓存";
         // 等待缓存过期后再访问数据源
-        Thread.sleep(200);
+        Thread.sleep(205);
         assert datasource == dataManager.getDataPack(null).provider : "缓存过期后应重新访问数据源";
     }
 

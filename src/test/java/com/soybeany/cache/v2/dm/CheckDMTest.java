@@ -18,7 +18,7 @@ public class CheckDMTest {
 
     private final ICacheChecker<Integer, Integer> checker = (param, dataPack) -> {
         c++;
-        return dataPack.getData() < param;
+        return !dataPack.norm() || dataPack.getData() < param;
     };
 
     private int a;

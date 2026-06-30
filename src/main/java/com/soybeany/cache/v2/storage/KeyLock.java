@@ -1,6 +1,6 @@
 package com.soybeany.cache.v2.storage;
 
-import com.soybeany.cache.v2.contract.frame.ISingleLockSupport;
+import com.soybeany.cache.v2.contract.frame.IKeyLock;
 import com.soybeany.cache.v2.exception.CacheWaitException;
 
 import java.util.Map;
@@ -14,7 +14,7 @@ import java.util.function.Function;
 /**
  * 单锁支持（仅支持按key加锁，不支持全局锁）
  */
-public class SingleLockSupport implements ISingleLockSupport<Lock> {
+public class KeyLock implements IKeyLock<Lock> {
     public static final long LOCK_WAIT_TIME_DEFAULT = 30 * 1000;
 
     protected final String desc;
@@ -22,11 +22,11 @@ public class SingleLockSupport implements ISingleLockSupport<Lock> {
     protected final Lock mapLock = new ReentrantLock();
     protected final Function<String, Long> lockWaitTimeSupplier;
 
-    public SingleLockSupport(String desc) {
+    public KeyLock(String desc) {
         this(desc, null);
     }
 
-    public SingleLockSupport(String desc, Function<String, Long> lockWaitTimeSupplier) {
+    public KeyLock(String desc, Function<String, Long> lockWaitTimeSupplier) {
         this.desc = desc;
         this.lockWaitTimeSupplier = Optional.ofNullable(lockWaitTimeSupplier).orElse(param -> LOCK_WAIT_TIME_DEFAULT);
     }

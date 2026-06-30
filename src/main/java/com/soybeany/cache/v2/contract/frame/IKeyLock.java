@@ -1,7 +1,7 @@
 package com.soybeany.cache.v2.contract.frame;
 
 
-public interface ISingleLockSupport<L> {
+public interface IKeyLock<L> {
 
     L onTryLock(String key);
 

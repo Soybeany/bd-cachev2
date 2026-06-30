@@ -391,7 +391,7 @@ public class DataManager<Param, Data> {
 
         /**
          * 配置数据源访问超时(毫秒)
-         * <br>* 默认值为30秒({@link com.soybeany.cache.v2.storage.SingleLockSupport#LOCK_WAIT_TIME_DEFAULT})
+         * <br>* 默认值为30秒({@link com.soybeany.cache.v2.storage.KeyLock#LOCK_WAIT_TIME_DEFAULT})
          */
         public Builder<Param, Data> datasourceTimeout(long timeoutMs) {
             storageManager.setDatasourceTimeout(timeoutMs);
@@ -401,7 +401,7 @@ public class DataManager<Param, Data> {
         /**
          * 配置数据获取锁（fetch lock）的超时
          * <br>* 用于防止多个线程同时请求同一key的数据时，某个线程持锁过久
-         * <br>* 默认值为30秒({@link com.soybeany.cache.v2.storage.SingleLockSupport#LOCK_WAIT_TIME_DEFAULT})
+         * <br>* 默认值为30秒({@link com.soybeany.cache.v2.storage.KeyLock#LOCK_WAIT_TIME_DEFAULT})
          */
         @SuppressWarnings("unused")
         public Builder<Param, Data> fetchLockTimeout(Function<String, Long> supplier) {

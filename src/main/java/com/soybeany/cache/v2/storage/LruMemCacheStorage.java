@@ -32,7 +32,7 @@ public class LruMemCacheStorage<Param, Data> extends StdStorage<Param, Data> imp
     }
 
     public LruMemCacheStorage(long pTtl, long pTtlErr, int capacity, Type deppCopyType) {
-        this(pTtl, pTtlErr, capacity, deppCopyType, new ReentrantLockSupport(DESC));
+        this(pTtl, pTtlErr, capacity, deppCopyType, new StdLockSupport(DESC));
     }
 
     public LruMemCacheStorage(long pTtl, long pTtlErr, int capacity, Type deppCopyType, ILockSupport<Lock, Object> locker) {
@@ -177,7 +177,7 @@ public class LruMemCacheStorage<Param, Data> extends StdStorage<Param, Data> imp
         @Override
         protected ICacheStorage<Param, Data> onBuild() {
             RefImpl<Data> storage = weakRef ? new RefImpl<>(capacity, WeakReference::new) : new RefImpl<>(capacity, SoftReference::new);
-            return new LruMemCacheStorage<>(pTtl, pTtlErr, deppCopyType, new ReentrantLockSupport(DESC, lockWaitTimeSingleSupplier, lockWaitTimeAll), storage);
+            return new LruMemCacheStorage<>(pTtl, pTtlErr, deppCopyType, new StdLockSupport(DESC, lockWaitTimeSingleSupplier, lockWaitTimeAll), storage);
         }
 
         @Override

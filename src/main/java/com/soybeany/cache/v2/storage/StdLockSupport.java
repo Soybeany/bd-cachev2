@@ -10,16 +10,16 @@ import java.util.function.Function;
 /**
  * 多锁支持（同时支持按key加锁和全局锁）
  */
-public class ReentrantLockSupport extends SingleLockSupport implements ILockSupport<Lock, Object> {
+public class StdLockSupport extends KeyLock implements ILockSupport<Lock, Object> {
 
     private final Lock allLock = new ReentrantLock();
     private final long lockWaitTimeAll;
 
-    public ReentrantLockSupport(String desc) {
+    public StdLockSupport(String desc) {
         this(desc, null, null);
     }
 
-    public ReentrantLockSupport(String desc, Function<String, Long> lockWaitTimeSingleSupplier, Long lockWaitTimeAll) {
+    public StdLockSupport(String desc, Function<String, Long> lockWaitTimeSingleSupplier, Long lockWaitTimeAll) {
         super(desc, lockWaitTimeSingleSupplier);
         this.lockWaitTimeAll = Optional.ofNullable(lockWaitTimeAll).orElse(LOCK_WAIT_TIME_DEFAULT);
     }

@@ -13,6 +13,7 @@ import com.soybeany.cache.v2.storage.ReentrantLockSupport;
 
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.concurrent.locks.Lock;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -27,6 +28,8 @@ class StorageManager<Param, Data> {
     private DataContext context;
     private ICheckHolder<Param, Data> checkerHolder = (param, supplier) -> supplier.get();
     private boolean enableRenewExpiredCache;
+    private final ReentrantLockSupport fetchLockSupport = new ReentrantLockSupport("fetch");
+
     private long datasourceTimeout = ReentrantLockSupport.LOCK_WAIT_TIME_DEFAULT;
 
     static final long DEFAULT_QUICK_TIMEOUT_MS = 2000L;
@@ -249,20 +252,39 @@ class StorageManager<Param, Data> {
     private DataPack<Data> onGetDataPack(int storageIndex, DataParam<Param> param, IDatasource<Param, Data> datasource, boolean needStore, Function<RuntimeException, DataPack<Data>> onException) {
         // 若超出storages边界，则访问数据源
         if (storageIndex >= storages.size()) {
-            return getDataDirectly(this, param.value, datasource, datasourceTimeout);
+            return exeWithFetchLock(param, () -> {
+                // 双重检查：其他线程可能已写入缓存
+                for (ICacheStorage<Param, Data> storage : storages) {
+                    try {
+                        return storage.onGetCache(param);
+                    } catch (NoCacheException ignored) {
+                    }
+                }
+                DataPack<Data> dataPack = getDataDirectly(this, param.value, datasource, datasourceTimeout);
+                // 在fetch锁内回写所有缓存层，释放锁后其他线程可直接读到
+                if (needStore) {
+                    for (int i = storages.size() - 1; i >= 0; i--) {
+                        ICacheStorage<Param, Data> s = storages.get(i);
+                        DataPack<Data> dp = dataPack;
+                        dataPack = exeWithLock(s, param, () -> s.onCacheData(param, dp), onException);
+                    }
+                }
+                return dataPack;
+            }, onException);
         }
 
         ICacheStorage<Param, Data> storage = storages.get(storageIndex);
-        return exeWithLock(storage, param, () -> {
+        return onExe(() -> {
             try {
                 // 从当前storage获取数据
                 return storage.onGetCache(param);
             } catch (NoCacheException e) {
                 // 从下一storage获取数据
                 DataPack<Data> dataPack = onGetDataPack(storageIndex + 1, param, datasource, needStore, onException);
-                // 按需缓存数据
-                if (needStore) {
-                    dataPack = storage.onCacheData(param, dataPack);
+                // 按需缓存数据（数据提升：非数据源路径时才回写，数据源路径已由边界统一回写）
+                if (needStore && !isFromDatasource(dataPack)) {
+                    DataPack<Data> dp = dataPack;
+                    dataPack = exeWithLock(storage, param, () -> storage.onCacheData(param, dp), onException);
                 }
                 return dataPack;
             }
@@ -274,15 +296,12 @@ class StorageManager<Param, Data> {
             return new DataPack<>(DataCore.fromException(new NoCacheException()), this, 0);
         }
         ICacheStorage<Param, Data> storage = storages.get(storageIndex);
-        return exeWithLock(storage, param, () -> {
-            try {
-                return storage.onGetCacheIgnoreExpiry(param);
-            } catch (NoCacheException e) {
-                DataPack<Data> dataPack = onGetCacheDataPack(storageIndex + 1, param);
-                dataPack = storage.onCacheData(param, dataPack);
-                return dataPack;
-            }
-        });
+        try {
+            return storage.onGetCacheIgnoreExpiry(param);
+        } catch (NoCacheException e) {
+            DataPack<Data> dataPack = onGetCacheDataPack(storageIndex + 1, param);
+            return exeWithLock(storage, param, () -> storage.onCacheData(param, dataPack));
+        }
     }
 
     private void exeWithLock(ICacheStorage<Param, Data> storage, DataParam<Param> param, Runnable callback) {
@@ -305,6 +324,16 @@ class StorageManager<Param, Data> {
 
     private void exeWithLockAll(ICacheStorage<Param, Data> storage, Runnable callback) {
         onExeWithLockAuto(storage, LockHelper::tryLockAll, LockHelper::unlockAll, toFunc(callback), getOnException());
+    }
+
+    private <T> T exeWithFetchLock(DataParam<Param> param, Supplier<T> callback, Function<RuntimeException, T> onException) {
+        LockHelper<Lock, Object> lockHelper = new LockHelper<>(context, fetchLockSupport);
+        return onExeWithLock(
+                () -> lockHelper.tryLock(param.paramKey),
+                lock -> lockHelper.unlock(param.paramKey, lock),
+                callback,
+                onException
+        );
     }
 
     @SuppressWarnings("unchecked")

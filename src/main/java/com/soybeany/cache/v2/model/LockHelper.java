@@ -4,7 +4,9 @@ import com.soybeany.cache.v2.contract.frame.ILockSupport;
 
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 public class LockHelper<L, AL> {
 
@@ -35,7 +37,8 @@ public class LockHelper<L, AL> {
 
     public Map<String, L> tryLockBatch(Collection<String> keys) {
         Map<String, L> locking = new HashMap<>();
-        for (String key : keys) {
+        List<String> sortedKeys = keys.stream().sorted().collect(Collectors.toList());
+        for (String key : sortedKeys) {
             try {
                 L lock = tryLock(key);
                 locking.put(key, lock);

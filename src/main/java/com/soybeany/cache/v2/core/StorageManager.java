@@ -9,7 +9,8 @@ import com.soybeany.cache.v2.exception.CacheWaitException;
 import com.soybeany.cache.v2.exception.NoCacheException;
 import com.soybeany.cache.v2.exception.NoDataSourceException;
 import com.soybeany.cache.v2.model.*;
-import com.soybeany.cache.v2.storage.ReentrantLockSupport;
+import com.soybeany.cache.v2.contract.frame.ISingleLockSupport;
+import com.soybeany.cache.v2.storage.SingleLockSupport;
 
 import java.util.*;
 import java.util.concurrent.*;
@@ -20,7 +21,7 @@ import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
-import static com.soybeany.cache.v2.storage.ReentrantLockSupport.LOCK_WAIT_TIME_DEFAULT;
+import static com.soybeany.cache.v2.storage.SingleLockSupport.LOCK_WAIT_TIME_DEFAULT;
 
 class StorageManager<Param, Data> {
 
@@ -30,9 +31,8 @@ class StorageManager<Param, Data> {
     private DataContext context;
     private ICheckHolder<Param, Data> checkerHolder = (param, supplier) -> supplier.get();
     private boolean enableRenewExpiredCache;
-    private ReentrantLockSupport fetchLockSupport;
+    private ISingleLockSupport<Lock> fetchLockSupport;
     private Function<String, Long> fetchLockTimeoutSingleSupplier;
-    private long fetchLockTimeoutAll = LOCK_WAIT_TIME_DEFAULT;
 
     private long datasourceTimeout = LOCK_WAIT_TIME_DEFAULT;
 
@@ -146,13 +146,9 @@ class StorageManager<Param, Data> {
         this.fetchLockTimeoutSingleSupplier = fetchLockTimeoutSingleSupplier;
     }
 
-    public void setFetchLockTimeoutAll(long fetchLockTimeoutAll) {
-        this.fetchLockTimeoutAll = fetchLockTimeoutAll;
-    }
-
     public void init(DataContext context) {
         this.context = context;
-        fetchLockSupport = new ReentrantLockSupport("fetch", fetchLockTimeoutSingleSupplier, fetchLockTimeoutAll);
+        fetchLockSupport = new SingleLockSupport("fetch", fetchLockTimeoutSingleSupplier);
         if (storages.isEmpty()) {
             return;
         }
@@ -340,13 +336,22 @@ class StorageManager<Param, Data> {
     }
 
     private <T> T exeWithFetchLock(DataParam<Param> param, Supplier<T> callback, Function<RuntimeException, T> onException) {
-        LockHelper<Lock, Object> lockHelper = new LockHelper<>(context, fetchLockSupport);
-        return onExeWithLock(
-                () -> lockHelper.tryLock(param.paramKey),
-                lock -> lockHelper.unlock(param.paramKey, lock),
-                callback,
-                onException
-        );
+        Lock lock;
+        try {
+            lock = fetchLockSupport.onTryLock(param.paramKey);
+        } catch (RuntimeException e) {
+            context.logger.onLockException(param.paramKey, e);
+            return onException.apply(e);
+        }
+        try {
+            return onExe(callback, onException);
+        } finally {
+            try {
+                fetchLockSupport.onUnlock(lock);
+            } catch (RuntimeException e) {
+                context.logger.onLockException(param.paramKey, e);
+            }
+        }
     }
 
     @SuppressWarnings("unchecked")

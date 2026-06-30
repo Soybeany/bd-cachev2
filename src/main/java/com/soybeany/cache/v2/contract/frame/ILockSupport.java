@@ -1,11 +1,7 @@
 package com.soybeany.cache.v2.contract.frame;
 
 
-public interface ILockSupport<L, AL> {
-
-    L onTryLock(String key);
-
-    void onUnlock(L lock);
+public interface ILockSupport<L, AL> extends ISingleLockSupport<L> {
 
     AL onTryLockAll();
 

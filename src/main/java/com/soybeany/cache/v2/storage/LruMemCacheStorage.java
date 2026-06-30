@@ -35,7 +35,7 @@ public class LruMemCacheStorage<Param, Data> extends StdStorage<Param, Data> imp
     }
 
     public LruMemCacheStorage(long pTtl, long pTtlErr, int capacity, Type deppCopyType) {
-        this(pTtl, pTtlErr, capacity, deppCopyType, new StdLockSupport(DESC));
+        this(pTtl, pTtlErr, capacity, deppCopyType, new StdLockSupport(DESC, k -> 5000L, KeyLock.LOCK_WAIT_TIME_DEFAULT));
     }
 
     public LruMemCacheStorage(long pTtl, long pTtlErr, int capacity, Type deppCopyType, ILockSupport<Lock, Object> locker) {

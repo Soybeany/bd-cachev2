@@ -21,8 +21,6 @@ import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
-import static com.soybeany.cache.v2.storage.KeyLock.LOCK_WAIT_TIME_DEFAULT;
-
 class StorageManager<Param, Data> {
 
     private final LinkedList<ICacheStorage<Param, Data>> storages = new LinkedList<>();
@@ -34,7 +32,7 @@ class StorageManager<Param, Data> {
     private IKeyLock<Lock> fetchLockSupport;
     private Function<String, Long> fetchLockTimeoutSingleSupplier;
 
-    private long datasourceTimeout = LOCK_WAIT_TIME_DEFAULT;
+    private long datasourceTimeout = 30 * 1000;
 
     static final long DEFAULT_QUICK_TIMEOUT_MS = 2000L;
     private static final ExecutorService DATASOURCE_EXECUTOR = Executors.newCachedThreadPool(r -> {

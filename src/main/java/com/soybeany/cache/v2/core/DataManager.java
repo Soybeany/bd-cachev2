@@ -135,6 +135,63 @@ public class DataManager<Param, Data> {
     }
 
     /**
+     * 获得数据(短超时回退模式)
+     * <br>使用短超时访问数据源，超时后回退到过期的缓存值
+     */
+    public Data getDataWithCacheFallback(Param param) {
+        return getDataPackWithCacheFallback(param).getData();
+    }
+
+    /**
+     * 获得数据(短超时回退模式)
+     */
+    public Data getDataWithCacheFallback(Param param, long quickTimeoutMs) {
+        return getDataPackWithCacheFallback(param, quickTimeoutMs).getData();
+    }
+
+    /**
+     * 获得数据(短超时回退模式)
+     */
+    public DataPack<Data> getDataPackWithCacheFallback(Param param) {
+        return getDataPackWithCacheFallback(param, defaultDatasource);
+    }
+
+    /**
+     * 获得数据(短超时回退模式)
+     */
+    public DataPack<Data> getDataPackWithCacheFallback(Param param, long quickTimeoutMs) {
+        return getDataPackWithCacheFallback(param, defaultDatasource, quickTimeoutMs);
+    }
+
+    /**
+     * 获得数据(短超时回退模式)
+     */
+    public DataPack<Data> getDataPackWithCacheFallback(Param param, IDatasource<Param, Data> datasource) {
+        return getDataPackWithCacheFallback(param, datasource, StorageManager.DEFAULT_QUICK_TIMEOUT_MS);
+    }
+
+    /**
+     * 获得数据(短超时回退模式)
+     */
+    public DataPack<Data> getDataPackWithCacheFallback(Param param, IDatasource<Param, Data> datasource, long quickTimeoutMs) {
+        return getDataPackWithCacheFallback(param, datasource, quickTimeoutMs, Function.identity());
+    }
+
+    /**
+     * 获得数据(短超时回退模式，支持自定义回退逻辑)
+     *
+     * @param fallbackProcessor 回退处理逻辑，入参为当前过期的缓存DataPack，返回处理后的DataPack
+     */
+    public DataPack<Data> getDataPackWithCacheFallback(Param param, IDatasource<Param, Data> datasource, long quickTimeoutMs, Function<DataPack<Data>, DataPack<Data>> fallbackProcessor) {
+        context.logger.onStart();
+        DataParam<Param> dataParam = toDataParam(param);
+        DataPack<Data> pack = storageManager.getDataPackWithCacheFallback(dataParam, datasource, true, quickTimeoutMs, fallbackProcessor);
+        // 记录日志
+        context.logger.onGetDataWithCacheFallback(dataParam, pack);
+        return pack;
+    }
+
+    /**
      * 缓存数据，手动模式管理
      */
     public void cacheData(Param param, Data data) {

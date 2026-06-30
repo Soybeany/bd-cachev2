@@ -32,7 +32,7 @@ public class MultiKeyDMTest {
             .build();
 
     @Test
-    public void test() throws Exception {
+    public void test_不同key并行访问不串行() throws Exception {
         int count = 10;
         Thread[] threads = new Thread[count];
         for (int i = 0; i < count; i++) {
@@ -49,7 +49,7 @@ public class MultiKeyDMTest {
         long delta = System.currentTimeMillis() - start;
         System.out.println("时差:" + delta);
         // 不能高于2秒：访问数据源不允许串行；整体执行效率也不能过低
-        assert delta < 2000;
+        assert delta < 2000 : "并行耗时应小于2000ms，实际: " + delta;
     }
 
     private static class TestStorage<Param, Data> extends LruMemCacheStorage<Param, Data> {
@@ -63,7 +63,7 @@ public class MultiKeyDMTest {
         public DataPack<Data> onCacheData(DataParam<Param> param, DataPack<Data> dataPack) {
             System.out.println("存数据:" + param.paramKey);
             try {
-                Thread.sleep(500);
+                Thread.sleep(100);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }

@@ -44,45 +44,37 @@ public class SimpleDMTest {
         String key = "key";
         // 第一次将访问数据源
         DataPack<String> data = dataManager.getDataPack(key);
-        assert datasource.equals(data.provider);
+        assert datasource.equals(data.provider) : "首次应访问数据源";
         // 第二次将读取lru
         data = dataManager.getDataPack(key);
-        assert lruStorage.equals(data.provider);
+        assert lruStorage.equals(data.provider) : "第二次应读取缓存";
     }
 
     @Test
-    public void lruTest() throws Exception {
+    public void lruTest_容量限制淘汰最旧数据() throws Exception {
         String key1 = "key1";
         String key2 = "key2";
         String key3 = "key3";
         // 第一次均访问数据源
-        DataPack<String> data = dataManager.getDataPack(key1);
-        assert datasource.equals(data.provider);
-        data = dataManager.getDataPack(key2);
-        assert datasource.equals(data.provider);
-        data = dataManager.getDataPack(key3);
-        assert datasource.equals(data.provider);
+        assert datasource.equals(dataManager.getDataPack(key1).provider) : "key1首次应访问数据源";
+        assert datasource.equals(dataManager.getDataPack(key2).provider) : "key2首次应访问数据源";
+        assert datasource.equals(dataManager.getDataPack(key3).provider) : "key3首次应访问数据源";
         // 第二次均读取lru
-        data = dataManager.getDataPack(key2);
-        assert lruStorage.equals(data.provider);
-        data = dataManager.getDataPack(key3);
-        assert lruStorage.equals(data.provider);
-        data = dataManager.getDataPack(key1);
-        assert lruStorage.equals(data.provider);
-        // 新增key则移除最旧的key
+        assert lruStorage.equals(dataManager.getDataPack(key2).provider) : "key2第二次应读取缓存";
+        assert lruStorage.equals(dataManager.getDataPack(key3).provider) : "key3第二次应读取缓存";
+        assert lruStorage.equals(dataManager.getDataPack(key1).provider) : "key1第二次应读取缓存";
+        // 新增key则移除最旧的key（原先访问顺序中最早的key2被淘汰）
         String key4 = "key4";
         dataManager.getDataPack(key4);
-        lruStorage.onGetCache(new DataParam<>(null, key3, null));
-        try {
-            lruStorage.onGetCache(new DataParam<>(null, key2, null));
-            throw new Exception("不允许还持有缓存");
-        } catch (NoCacheException e) {
-            System.out.println("“" + key2 + "”的缓存已移除");
-        }
+        assert lruStorage.equals(dataManager.getDataPack(key4).provider) : "key4应读取缓存";
+        assert lruStorage.equals(dataManager.getDataPack(key1).provider) : "key1应仍在缓存";
+        assert lruStorage.equals(dataManager.getDataPack(key3).provider) : "key3应仍在缓存";
+        // key2被淘汰，应访问数据源
+        assert datasource.equals(dataManager.getDataPack(key2).provider) : "key2应被淘汰，重新访问数据源";
     }
 
     @Test
-    public void concurrentTest() throws Exception {
+    public void concurrentTest_单发限制() throws Exception {
         int count = 10;
         final Object[] providers = new Object[count];
         Thread[] threads = new Thread[count];
@@ -97,28 +89,27 @@ public class SimpleDMTest {
         for (Thread thread : threads) {
             thread.join();
         }
-        // 并发限制
+        // 并发限制：只能有一个线程访问数据源
         int accessCount = 0;
         for (Object provider : providers) {
             if (datasource == provider) {
                 accessCount++;
             }
         }
-        // 单发限制
         System.out.println("accessCount:" + accessCount);
-        assert accessCount == 1;
-        DataPack<String> pack1 = dataManager.getDataPack(null);
-        assert lruStorage == pack1.provider;
+        assert accessCount == 1 : "并发访问数据源次数应为1，实际: " + accessCount;
+        // 后续直接读取缓存
+        assert lruStorage == dataManager.getDataPack(null).provider : "并发后应读取缓存";
+        // 等待缓存过期后再访问数据源
         Thread.sleep(200);
-        DataPack<String> pack2 = dataManager.getDataPack(null);
-        assert datasource == pack2.provider;
+        assert datasource == dataManager.getDataPack(null).provider : "缓存过期后应重新访问数据源";
     }
 
     @Test
     public void specifyDatasourceTest() {
         final String source = "新数据源";
         String data = dataManager.getDataPack(null, s -> source).getData();
-        assert source.equals(data);
+        assert source.equals(data) : "应使用指定的数据源";
     }
 
     @Test
@@ -127,7 +118,7 @@ public class SimpleDMTest {
             dataManager.getDataPack(null, null).getData();
             throw new Exception("不允许不抛出异常");
         } catch (Exception e) {
-            assert e instanceof NoDataSourceException;
+            assert e instanceof NoDataSourceException : "应抛出NoDataSourceException";
         }
     }
 
@@ -136,29 +127,35 @@ public class SimpleDMTest {
         DataManager<String, String> manager = DataManager.Builder.get("无缓存测试", datasource)
                 .logger(new ConsoleLogger())
                 .build();
-        DataPack<String> pack = manager.getDataPack("key1");
-        assert datasource.equals(pack.provider);
-        pack = manager.getDataPack("key1");
-        assert datasource.equals(pack.provider);
+        // 无缓存时每次都访问数据源
+        assert datasource.equals(manager.getDataPack("key1").provider) : "无缓存首次应访问数据源";
+        assert datasource.equals(manager.getDataPack("key1").provider) : "无缓存第二次也应访问数据源";
     }
 
     @Test
     public void removeKeyTest() {
         String key1 = "key1";
         String key2 = "key2";
-        // 第一次将访问1数据源
-        DataPack<String> data = dataManager.getDataPack(key1);
-        assert datasource.equals(data.provider);
-        // 第一次将访问2数据源
-        DataPack<String> data2 = dataManager.getDataPack(key2);
-        assert datasource.equals(data2.provider);
-        // 移除1的缓存，1将重新从数据源加载
-        dataManager.removeCache(key1, 0);
-        data = dataManager.getDataPack(key1);
-        assert datasource.equals(data.provider);
-        // 2不受影响
-        data2 = dataManager.getDataPack(key2);
-        assert lruStorage.equals(data2.provider);
+        // 第一次均访问数据源
+        assert datasource.equals(dataManager.getDataPack(key1).provider) : "key1首次应访问数据源";
+        assert datasource.equals(dataManager.getDataPack(key2).provider) : "key2首次应访问数据源";
+        // 移除key1的缓存
+        dataManager.removeCache(key1);
+        // key1应重新从数据源加载
+        assert datasource.equals(dataManager.getDataPack(key1).provider) : "removeCache后key1应重新访问数据源";
+        // key2不受影响，应从缓存读取
+        assert lruStorage.equals(dataManager.getDataPack(key2).provider) : "key2应仍从缓存读取";
     }
 
+    @Test
+    public void containCache_无缓存时返回false() {
+        assert !dataManager.containCache("non_exist") : "不存在的key应返回false";
+    }
+
+    @Test
+    public void containCache_有缓存时返回true() {
+        String key = "contain_test";
+        dataManager.getDataPack(key);
+        assert dataManager.containCache(key) : "已缓存的key应返回true";
+    }
 }

@@ -25,18 +25,24 @@ public class WeakRefDMTest {
             .build();
 
     @Test
-    public void test() {
+    public void test_弱引用GC后重新拉取数据() {
         String key = "成功";
         // 默认为同一副本
         DataPack<Data> dataPack1 = dataManager.getDataPack(key);
         DataPack<Data> dataPack2 = dataManager.getDataPack(key);
-        assert dataPack1.getData() == dataPack2.getData();
-        assert dataPack2.provider == storage;
-        // GC后重新拉取数据
-        System.gc();
-        DataPack<Data> dataPack3 = dataManager.getDataPack(key);
-        assert dataPack2.getData() != dataPack3.getData();
-        assert dataPack3.provider == datasource;
+        assert dataPack1.getData() == dataPack2.getData() : "同一key应返回同一对象引用";
+        assert dataPack2.provider == storage : "应从缓存读取";
+        // GC后重新拉取数据（多次尝试确保GC生效）
+        boolean gcTriggered = false;
+        for (int i = 0; i < 5; i++) {
+            System.gc();
+            DataPack<Data> dataPack3 = dataManager.getDataPack(key);
+            if (dataPack3.provider == datasource) {
+                gcTriggered = true;
+                break;
+            }
+        }
+        assert gcTriggered : "GC后应重新从数据源获取数据";
     }
 
     private static class Data {

@@ -11,7 +11,7 @@ import org.junit.Test;
 
 /**
  * 测试短超时回退模式<br>
- * 对应{@link com.soybeany.cache.v2.core.StorageManager#getDataPackWithCacheFallback}
+ * 对应{@link com.soybeany.cache.v2.core.DataManager#getDataPackWithCacheFallback}
  */
 public class CacheFallbackDMTest {
 
@@ -34,7 +34,7 @@ public class CacheFallbackDMTest {
     public void fallback_数据源快速响应时返回新数据() {
         DataManager<String, String> manager = createManager(fastDatasource);
         // fallback调用应直接返回新数据
-        DataPack<String> pack = manager.getDataPackWithCacheFallback("key");
+        DataPack<String> pack = manager.getDataPackWithCacheFallback("key", 2000L);
         assert pack.norm();
         assert "新数据".equals(pack.getData());
     }
@@ -50,7 +50,7 @@ public class CacheFallbackDMTest {
         // 等待缓存过期
         Thread.sleep(250);
         // fallback调用，短超时应从过期缓存返回
-        DataPack<String> pack = manager.getDataPackWithCacheFallback(key);
+        DataPack<String> pack = manager.getDataPackWithCacheFallback(key, 2000L);
         // 应快速返回（远小于3秒的数据源耗时）
         assert pack.norm() : "fallback应返回正常数据包";
         assert "新数据".equals(pack.getData());
@@ -67,7 +67,7 @@ public class CacheFallbackDMTest {
         // 等待缓存过期
         Thread.sleep(250);
         // fallback调用，应回退到过期缓存
-        DataPack<String> pack = manager.getDataPackWithCacheFallback(key);
+        DataPack<String> pack = manager.getDataPackWithCacheFallback(key, 2000L);
         assert pack.norm() : "fallback应返回正常数据包";
         assert "新数据".equals(pack.getData());
     }
@@ -76,7 +76,7 @@ public class CacheFallbackDMTest {
     public void fallback_无过期缓存时回退到异常包() {
         DataManager<String, String> manager = createManager(slowDatasource);
         // 从未缓存过任何数据
-        DataPack<String> pack = manager.getDataPackWithCacheFallback("no_cache_key");
+        DataPack<String> pack = manager.getDataPackWithCacheFallback("no_cache_key", 2000L);
         assert !pack.norm() : "无缓存时应返回异常包";
     }
 
@@ -98,7 +98,7 @@ public class CacheFallbackDMTest {
     public void fallback_默认超时时间() {
         DataManager<String, String> manager = createManager(fastDatasource);
         // 使用默认超时（DEFAULT_QUICK_TIMEOUT_MS = 2000ms）
-        DataPack<String> pack = manager.getDataPackWithCacheFallback("default_key");
+        DataPack<String> pack = manager.getDataPackWithCacheFallback("default_key", 2000L);
         assert pack.norm();
         assert "新数据".equals(pack.getData());
     }
@@ -107,7 +107,7 @@ public class CacheFallbackDMTest {
     public void fallback_指定数据源() {
         DataManager<String, String> manager = createManager(slowDatasource);
         // 使用快速数据源作为参数传入
-        DataPack<String> pack = manager.getDataPackWithCacheFallback("spec_ds", fastDatasource);
+        DataPack<String> pack = manager.getDataPackWithCacheFallback("spec_ds", fastDatasource, 2000L);
         assert pack.norm();
         assert "新数据".equals(pack.getData());
         assert fastDatasource.equals(pack.provider) : "应使用指定的数据源";
@@ -150,7 +150,7 @@ public class CacheFallbackDMTest {
     @Test
     public void fallback_无参数数据源重载() {
         DataManager<String, String> manager = createManager(fastDatasource);
-        DataPack<String> pack = manager.getDataPackWithCacheFallback("key");
+        DataPack<String> pack = manager.getDataPackWithCacheFallback("key", 2000L);
         assert pack.norm();
     }
 
@@ -166,7 +166,7 @@ public class CacheFallbackDMTest {
     @Test
     public void getDataWithCacheFallback_正常返回数据() {
         DataManager<String, String> manager = createManager(fastDatasource);
-        String data = manager.getDataWithCacheFallback("key");
+        String data = manager.getDataWithCacheFallback("key", 2000L);
         assert "新数据".equals(data);
     }
 

@@ -11,7 +11,7 @@ import org.junit.Test;
 
 /**
  * 测试多级缓存中的数据提升(Data Promotion)行为，以及needStore=false模式<br>
- * 对应{@link com.soybeany.cache.v2.core.StorageManager#getDataPack} 中数据回写(数据提升)逻辑
+ * 对应{@link com.soybeany.cache.v2.core.DataManager#getDataPack} 中数据回写(数据提升)逻辑
  */
 public class DataPromotionDMTest {
 

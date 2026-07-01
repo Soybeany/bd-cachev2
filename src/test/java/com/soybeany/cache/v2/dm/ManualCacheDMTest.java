@@ -13,7 +13,7 @@ import java.util.Map;
 
 /**
  * 测试手动缓存/批量缓存功能<br>
- * 对应{@link com.soybeany.cache.v2.core.StorageManager#cacheData}和{@link com.soybeany.cache.v2.core.StorageManager#batchCacheData}
+ * 对应{@link com.soybeany.cache.v2.core.DataManager#cacheData}和{@link com.soybeany.cache.v2.core.DataManager#batchCacheData}
  */
 public class ManualCacheDMTest {
 

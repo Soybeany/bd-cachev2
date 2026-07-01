@@ -128,18 +128,12 @@ public class DataManager<Param, Data> {
      */
     public DataPack<Data> getDataPackDirectly(Param param) {
         context.logger.onStart();
-        DataPack<Data> pack = StorageManager.getDataDirectly(this, param, defaultDatasource, storageManager.getDatasourceTimeout());
+        DataParam<Param> dataParam = toDataParam(param);
+        long datasourceTimeout = storageManager.getDatasourceTimeout(dataParam.paramKey);
+        DataPack<Data> pack = StorageManager.getDataDirectly(this, param, defaultDatasource, datasourceTimeout);
         // 记录日志
-        context.logger.onGetData(toDataParam(param), pack, false);
+        context.logger.onGetData(dataParam, pack, false);
         return pack;
-    }
-
-    /**
-     * 获得数据(短超时回退模式)
-     * <br>使用短超时访问数据源，超时后回退到过期的缓存值
-     */
-    public Data getDataWithCacheFallback(Param param) {
-        return getDataPackWithCacheFallback(param).getData();
     }
 
     /**
@@ -152,22 +146,8 @@ public class DataManager<Param, Data> {
     /**
      * 获得数据(短超时回退模式)
      */
-    public DataPack<Data> getDataPackWithCacheFallback(Param param) {
-        return getDataPackWithCacheFallback(param, defaultDatasource);
-    }
-
-    /**
-     * 获得数据(短超时回退模式)
-     */
     public DataPack<Data> getDataPackWithCacheFallback(Param param, long quickTimeoutMs) {
         return getDataPackWithCacheFallback(param, defaultDatasource, quickTimeoutMs);
-    }
-
-    /**
-     * 获得数据(短超时回退模式)
-     */
-    public DataPack<Data> getDataPackWithCacheFallback(Param param, IDatasource<Param, Data> datasource) {
-        return getDataPackWithCacheFallback(param, datasource, StorageManager.DEFAULT_QUICK_TIMEOUT_MS);
     }
 
     /**
@@ -403,8 +383,8 @@ public class DataManager<Param, Data> {
          * 配置数据源访问超时(毫秒)
          * <br>* 默认值为30秒
          */
-        public Builder<Param, Data> datasourceTimeout(long timeoutMs) {
-            storageManager.setDatasourceTimeout(timeoutMs);
+        public Builder<Param, Data> datasourceTimeout(Function<String, Long> supplier) {
+            storageManager.setDatasourceTimeout(supplier);
             return this;
         }
 

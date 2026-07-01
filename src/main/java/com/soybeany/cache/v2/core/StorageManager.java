@@ -8,7 +8,10 @@ import com.soybeany.cache.v2.contract.user.IOnInvalidListener;
 import com.soybeany.cache.v2.exception.CacheWaitException;
 import com.soybeany.cache.v2.exception.NoCacheException;
 import com.soybeany.cache.v2.exception.NoDataSourceException;
-import com.soybeany.cache.v2.model.*;
+import com.soybeany.cache.v2.model.DataContext;
+import com.soybeany.cache.v2.model.DataCore;
+import com.soybeany.cache.v2.model.DataPack;
+import com.soybeany.cache.v2.model.DataParam;
 import com.soybeany.cache.v2.storage.StdKeyLock;
 
 import java.util.*;
@@ -21,6 +24,8 @@ import java.util.stream.Collectors;
 
 class StorageManager<Param, Data> {
 
+    private static final long LOCK_WAIT_TIME_DEFAULT = 30 * 1000;
+
     private final LinkedList<ICacheStorage<Param, Data>> storages = new LinkedList<>();
     private final Set<IOnInvalidListener<Param>> onInvalidListeners = new HashSet<>();
 
@@ -28,11 +33,9 @@ class StorageManager<Param, Data> {
     private ICheckHolder<Param, Data> checkerHolder = (param, supplier) -> supplier.get();
     private boolean enableRenewExpiredCache;
     private IKeyLock<Lock> fetchLockSupport;
-    private Function<String, Long> fetchLockTimeoutSingleSupplier;
+    private Function<String, Long> fetchLockTimeoutSingleSupplier = k -> LOCK_WAIT_TIME_DEFAULT;
+    private Function<String, Long> datasourceTimeoutSupplier = k -> LOCK_WAIT_TIME_DEFAULT;
 
-    private long datasourceTimeout = 30 * 1000;
-
-    static final long DEFAULT_QUICK_TIMEOUT_MS = 2000L;
     private static final ExecutorService DATASOURCE_EXECUTOR = Executors.newCachedThreadPool(r -> {
         Thread t = new Thread(r, "bd-cache-ds");
         t.setDaemon(true);
@@ -130,12 +133,12 @@ class StorageManager<Param, Data> {
         this.enableRenewExpiredCache = enableRenewExpiredCache;
     }
 
-    public void setDatasourceTimeout(long datasourceTimeout) {
-        this.datasourceTimeout = datasourceTimeout;
+    public void setDatasourceTimeout(Function<String, Long> supplier) {
+        this.datasourceTimeoutSupplier = supplier;
     }
 
-    public long getDatasourceTimeout() {
-        return datasourceTimeout;
+    public long getDatasourceTimeout(String paramKey) {
+        return datasourceTimeoutSupplier.apply(paramKey);
     }
 
     public void setFetchLockTimeoutSingleSupplier(Function<String, Long> fetchLockTimeoutSingleSupplier) {
@@ -284,7 +287,7 @@ class StorageManager<Param, Data> {
                     }
                 }
                 List<DataPack<Data>> dataPackHolder = new ArrayList<>();
-                dataPackHolder.add(getDataDirectly(this, param.value, datasource, datasourceTimeout));
+                dataPackHolder.add(getDataDirectly(this, param.value, datasource, getDatasourceTimeout(param.paramKey)));
                 // 在fetch锁内回写所有缓存层，释放锁后其他线程可直接读到
                 if (needStore) {
                     for (int i = storages.size() - 1; i >= 0; i--) {

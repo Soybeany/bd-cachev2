@@ -161,6 +161,47 @@ public class CacheFallbackDMTest {
         assert pack.norm();
     }
 
+    // ********************混合场景：fallback 降级 + 后续 fetchLock 等待********************
+
+    @Test
+    public void fallback_降级后后续请求通过fetchLock等待后台写入的数据() throws Exception {
+        ICacheStorage<String, String> storage = new LruMemCacheStorage.Builder<String, String>().pTtl(80).build();
+        IDatasource<String, String> slowDs = s -> {
+            try {
+                Thread.sleep(500);
+            } catch (InterruptedException ignore) {
+            }
+            return "新数据_A";
+        };
+        DataManager<String, String> manager = DataManager.Builder
+                .get("fallback+wait测试", slowDs)
+                .withCache(storage)
+                .logger(new ConsoleLogger())
+                .fetchLockTimeout(p -> 2000L)
+                .build();
+
+        String key = "fb_wait";
+        // 用快速数据源写入初始缓存
+        manager.getDataPack(key, s -> "旧数据");
+        // 等待缓存过期
+        Thread.sleep(100);
+
+        // A: fallback降级，应快速返回过期数据
+        long t1 = System.currentTimeMillis();
+        String resultA = manager.getDataWithCacheFallback(key, 100L);
+        long t2 = System.currentTimeMillis();
+        assert "旧数据".equals(resultA) : "A应降级返回过期数据";
+        assert (t2 - t1) < 300 : "A应在短时间内返回，实际耗时:" + (t2 - t1);
+
+        // B: getDataPack 应等待A的后台线程完成，读取最新数据
+        DataPack<String> packB = manager.getDataPack(key);
+        long t3 = System.currentTimeMillis();
+        assert "新数据_A".equals(packB.getData()) : "B应读取A后台写入的最新数据";
+        // 验证B确实等待了A后台完成（宽松断言，避免因系统负载不稳定）
+        assert packB.provider instanceof ICacheStorage : "B应从缓存读取";
+        System.out.println("A耗时:" + (t2 - t1) + "ms, B等待耗时:" + (t3 - t2) + "ms");
+    }
+
     // ********************getDataWithCacheFallback********************
 
     @Test

@@ -402,8 +402,8 @@ public class DataManager<Param, Data> {
          * <br>* 默认线程名："bd-cache-ds"
          * <br>* 可通过此方法设置包装了MDC上下文传递的自定义执行器
          */
-        public Builder<Param, Data> asyncFetchExecutor(ExecutorService asyncFetchExecutor) {
-            storageManager.setAsyncFetchExecutor(asyncFetchExecutor);
+        public Builder<Param, Data> asyncFetchExecutor(Function<ExecutorService, ExecutorService> executorSupplier) {
+            storageManager.setAsyncFetchExecutor(executorSupplier);
             return this;
         }
 

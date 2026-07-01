@@ -152,8 +152,8 @@ class StorageManager<Param, Data> {
         this.fetchLock = fetchLock;
     }
 
-    public void setAsyncFetchExecutor(ExecutorService asyncFetchExecutor) {
-        this.asyncFetchExecutor = asyncFetchExecutor;
+    public void setAsyncFetchExecutor(Function<ExecutorService, ExecutorService> executorSupplier) {
+        this.asyncFetchExecutor = executorSupplier.apply(DEFAULT_ASYNC_FETCH_EXECUTOR);
     }
 
     public void init(DataContext context) {

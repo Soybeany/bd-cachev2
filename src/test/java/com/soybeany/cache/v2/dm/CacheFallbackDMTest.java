@@ -202,6 +202,85 @@ public class CacheFallbackDMTest {
         System.out.println("A耗时:" + (t2 - t1) + "ms, B等待耗时:" + (t3 - t2) + "ms");
     }
 
+    @Test
+    public void fallback降级后_getCache不阻塞直接读过期缓存() throws Exception {
+        ICacheStorage<String, String> storage = new LruMemCacheStorage.Builder<String, String>().pTtl(80).build();
+        IDatasource<String, String> slowDs = s -> {
+            try {
+                Thread.sleep(500);
+            } catch (InterruptedException ignore) {
+            }
+            return "新数据_A";
+        };
+        DataManager<String, String> manager = DataManager.Builder
+                .get("fb+getCache测试", slowDs)
+                .withCache(storage)
+                .logger(new ConsoleLogger())
+                .fetchLockTimeout(p -> 2000L)
+                .build();
+
+        String key = "fb_getCache";
+        // 写入初始缓存并等待过期
+        manager.getDataPack(key, s -> "旧数据");
+        Thread.sleep(100);
+
+        // A: fallback降级（后台线程持锁访问数据源）
+        manager.getDataWithCacheFallback(key, 100L);
+
+        // B: getCache 应不阻塞，直接读过期缓存（getCache不走fetchLock）
+        long t1 = System.currentTimeMillis();
+        String resultB = manager.getCache(key);
+        long t2 = System.currentTimeMillis();
+        assert "旧数据".equals(resultB) : "B应读到过期缓存";
+        assert (t2 - t1) < 200 : "B应快速返回，实际耗时:" + (t2 - t1);
+        System.out.println("B(getCache)耗时:" + (t2 - t1) + "ms");
+    }
+
+    @Test
+    public void getData持锁时_fallback可快速降级() throws Exception {
+        ICacheStorage<String, String> storage = new LruMemCacheStorage.Builder<String, String>().pTtl(80).build();
+        IDatasource<String, String> slowDs = s -> {
+            try {
+                Thread.sleep(500);
+            } catch (InterruptedException ignore) {
+            }
+            return "新数据_A";
+        };
+        DataManager<String, String> manager = DataManager.Builder
+                .get("lock+fb测试", slowDs)
+                .withCache(storage)
+                .logger(new ConsoleLogger())
+                .fetchLockTimeout(p -> 2000L)
+                .build();
+
+        String key = "lock_fb";
+        // 写入初始缓存并等待过期
+        manager.getDataPack(key, s -> "旧数据");
+        Thread.sleep(100);
+
+        // A: 独立线程中getData（进入fetchLock，慢数据源500ms）
+        Thread threadA = new Thread(() -> manager.getData(key));
+        threadA.start();
+        // 等A获取到锁
+        Thread.sleep(50);
+
+        // B: fallback调用，此时A持有fetchLock，B应快速降级
+        long t1 = System.currentTimeMillis();
+        String resultB = manager.getDataWithCacheFallback(key, 100L);
+        long t2 = System.currentTimeMillis();
+        assert "旧数据".equals(resultB) : "B应降级返回过期数据";
+        assert (t2 - t1) < 300 : "B应在短时间内返回，实际耗时:" + (t2 - t1);
+
+        // 等待A完成
+        threadA.join();
+
+        // C: getDataPack 应读到A写入的最新缓存数据
+        DataPack<String> packC = manager.getDataPack(key);
+        assert "新数据_A".equals(packC.getData()) : "C应读取A后台写入的最新数据";
+        assert packC.provider instanceof ICacheStorage : "C应从缓存读取";
+        System.out.println("B(fallback)耗时:" + (t2 - t1) + "ms");
+    }
+
     // ********************getDataWithCacheFallback********************
 
     @Test

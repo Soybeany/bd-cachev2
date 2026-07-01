@@ -2,6 +2,7 @@ package com.soybeany.cache.v2.core;
 
 
 import com.soybeany.cache.v2.contract.frame.ICacheStorage;
+import com.soybeany.cache.v2.contract.frame.IKeyLock;
 import com.soybeany.cache.v2.contract.frame.ILogger;
 import com.soybeany.cache.v2.contract.user.ICacheChecker;
 import com.soybeany.cache.v2.contract.user.IDatasource;
@@ -385,13 +386,12 @@ public class DataManager<Param, Data> {
         }
 
         /**
-         * 配置数据获取锁（fetch lock）的超时
-         * <br>* 用于防止多个线程同时请求同一key的数据时，某个线程持锁过久
-         * <br>* 默认值为30秒
+         * 配置数据获取锁（fetch lock）
+         * <br>* 用于防止多个线程同时请求同一key的数据源（默认仅能防单台服务器，升级为分布式锁可防全链路）
          */
         @SuppressWarnings("unused")
-        public Builder<Param, Data> fetchLockTimeout(Function<String, Long> supplier) {
-            storageManager.setFetchLockTimeoutSingleSupplier(supplier);
+        public Builder<Param, Data> fetchLock(IKeyLock fetchLock) {
+            storageManager.setFetchLock(fetchLock);
             return this;
         }
 

@@ -7,6 +7,7 @@ import com.soybeany.cache.v2.log.ConsoleLogger;
 import com.soybeany.cache.v2.model.DataCore;
 import com.soybeany.cache.v2.model.DataPack;
 import com.soybeany.cache.v2.storage.LruMemCacheStorage;
+import com.soybeany.cache.v2.storage.StdKeyLock;
 import org.junit.Test;
 
 import java.util.concurrent.atomic.AtomicInteger;
@@ -179,7 +180,7 @@ public class CacheFallbackDMTest {
                 .get("fallback+wait测试", slowDs)
                 .withCache(storage)
                 .logger(new ConsoleLogger())
-                .fetchLockTimeout(p -> 2000L)
+                .fetchLock(new StdKeyLock("fetch", p -> 2000L))
                 .build();
 
         String key = "fb_wait";
@@ -218,7 +219,7 @@ public class CacheFallbackDMTest {
                 .get("fb+getCache测试", slowDs)
                 .withCache(storage)
                 .logger(new ConsoleLogger())
-                .fetchLockTimeout(p -> 2000L)
+                .fetchLock(new StdKeyLock("fetch", p -> 2000L))
                 .build();
 
         String key = "fb_getCache";
@@ -252,7 +253,7 @@ public class CacheFallbackDMTest {
                 .get("lock+fb测试", slowDs)
                 .withCache(storage)
                 .logger(new ConsoleLogger())
-                .fetchLockTimeout(p -> 2000L)
+                .fetchLock(new StdKeyLock("fetch", p -> 2000L))
                 .build();
 
         String key = "lock_fb";
@@ -318,7 +319,7 @@ public class CacheFallbackDMTest {
                 .get("中断测试", slowDs)
                 .withCache(storage)
                 .logger(new ConsoleLogger())
-                .fetchLockTimeout(p -> 5000L)
+                .fetchLock(new StdKeyLock("fetch", p -> 5000L))
                 .build();
 
         String key = "interrupt_blocked";
@@ -369,7 +370,7 @@ public class CacheFallbackDMTest {
                 .get("已获锁不中断测试", slowDs)
                 .withCache(storage)
                 .logger(new ConsoleLogger())
-                .fetchLockTimeout(p -> 2000L)
+                .fetchLock(new StdKeyLock("fetch", p -> 2000L))
                 .build();
 
         String key = "interrupt_acquired";

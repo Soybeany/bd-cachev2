@@ -4,6 +4,7 @@ import com.soybeany.cache.v2.contract.frame.IKeyLock;
 import com.soybeany.cache.v2.exception.CacheWaitException;
 
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.WeakHashMap;
 import java.util.concurrent.ConcurrentHashMap;
@@ -15,7 +16,7 @@ import java.util.function.Function;
 /**
  * 单锁支持（仅支持按key加锁，不支持全局锁）
  */
-public class StdKeyLock implements IKeyLock<Lock> {
+public class StdKeyLock implements IKeyLock {
     private final String desc;
     private final Map<String, Lock> lockMap = new WeakHashMap<>();
     private final Lock mapLock = new ReentrantLock();
@@ -28,14 +29,13 @@ public class StdKeyLock implements IKeyLock<Lock> {
     }
 
     @Override
-    public Lock onTryLock(String key) {
+    public void onTryLock(String key) {
         Lock lock = getLock(key);
         Thread currentThread = Thread.currentThread();
         // 尝试获取锁前注册当前线程，使其可被cancelIfWaiting中断
         registerWaiting(currentThread);
         try {
             tryLock(key, lock, lockWaitTimeSupplier.apply(key));
-            return lock;
         } finally {
             // 无论成功获取锁还是异常退出，都取消注册
             unregisterWaiting(currentThread);
@@ -43,13 +43,14 @@ public class StdKeyLock implements IKeyLock<Lock> {
     }
 
     @Override
-    public void onUnlock(Lock lock) {
-        lock.unlock();
+    public void onUnlock(String key) {
+        Optional.ofNullable(lockMap.get(key)).ifPresent(Lock::unlock);
     }
 
     /**
      * 中断指定线程（仅当线程仍在等待锁时才中断，避免干扰已获锁的处理线程）
      */
+    @Override
     public void cancelIfWaiting(Thread thread) {
         if (waitingThreads.contains(thread)) {
             thread.interrupt();

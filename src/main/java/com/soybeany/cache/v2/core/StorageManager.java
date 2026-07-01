@@ -1,6 +1,7 @@
 package com.soybeany.cache.v2.core;
 
 import com.soybeany.cache.v2.contract.frame.ICacheStorage;
+import com.soybeany.cache.v2.contract.frame.IKeyLock;
 import com.soybeany.cache.v2.storage.StdKeyLock;
 import com.soybeany.cache.v2.contract.user.ICacheChecker;
 import com.soybeany.cache.v2.contract.user.IDatasource;
@@ -12,11 +13,9 @@ import com.soybeany.cache.v2.model.DataContext;
 import com.soybeany.cache.v2.model.DataCore;
 import com.soybeany.cache.v2.model.DataPack;
 import com.soybeany.cache.v2.model.DataParam;
-import com.soybeany.cache.v2.storage.StdKeyLock;
 
 import java.util.*;
 import java.util.concurrent.*;
-import java.util.concurrent.locks.Lock;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
@@ -32,8 +31,7 @@ class StorageManager<Param, Data> {
     private DataContext context;
     private ICheckHolder<Param, Data> checkerHolder = (param, supplier) -> supplier.get();
     private boolean enableRenewExpiredCache;
-    private StdKeyLock fetchLockSupport;
-    private Function<String, Long> fetchLockTimeoutSingleSupplier = k -> LOCK_WAIT_TIME_DEFAULT;
+    private IKeyLock fetchLock = new StdKeyLock("fetch", k -> LOCK_WAIT_TIME_DEFAULT);
     private Function<String, Long> datasourceTimeoutSupplier = k -> LOCK_WAIT_TIME_DEFAULT;
 
     private static final ExecutorService DATASOURCE_EXECUTOR = Executors.newCachedThreadPool(r -> {
@@ -141,13 +139,12 @@ class StorageManager<Param, Data> {
         return datasourceTimeoutSupplier.apply(paramKey);
     }
 
-    public void setFetchLockTimeoutSingleSupplier(Function<String, Long> fetchLockTimeoutSingleSupplier) {
-        this.fetchLockTimeoutSingleSupplier = fetchLockTimeoutSingleSupplier;
+    public void setFetchLock(IKeyLock fetchLock) {
+        this.fetchLock = fetchLock;
     }
 
     public void init(DataContext context) {
         this.context = context;
-        fetchLockSupport = new StdKeyLock("fetch", fetchLockTimeoutSingleSupplier);
         if (storages.isEmpty()) {
             return;
         }
@@ -178,7 +175,7 @@ class StorageManager<Param, Data> {
             return future.get(quickTimeoutMs, TimeUnit.MILLISECONDS);
         } catch (TimeoutException | InterruptedException e) {
             if (null != subThreadRef[0]) {
-                fetchLockSupport.cancelIfWaiting(subThreadRef[0]);
+                fetchLock.cancelIfWaiting(subThreadRef[0]);
             }
             return fallbackProcessor.apply(onGetCacheDataPack(0, param));
         } catch (ExecutionException e) {
@@ -338,9 +335,8 @@ class StorageManager<Param, Data> {
     }
 
     private <T> T exeWithFetchLock(DataParam<Param> param, Supplier<T> callback, Function<RuntimeException, T> onException) {
-        Lock lock;
         try {
-            lock = fetchLockSupport.onTryLock(param.paramKey);
+            fetchLock.onTryLock(param.paramKey);
         } catch (RuntimeException e) {
             context.logger.onLockException(param.paramKey, e);
             return onException.apply(e);
@@ -349,7 +345,7 @@ class StorageManager<Param, Data> {
             return onExe(callback, onException);
         } finally {
             try {
-                fetchLockSupport.onUnlock(lock);
+                fetchLock.onUnlock(param.paramKey);
             } catch (RuntimeException e) {
                 context.logger.onLockException(param.paramKey, e);
             }

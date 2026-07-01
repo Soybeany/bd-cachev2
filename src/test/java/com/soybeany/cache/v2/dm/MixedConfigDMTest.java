@@ -9,6 +9,7 @@ import com.soybeany.cache.v2.exception.CacheWaitException;
 import com.soybeany.cache.v2.log.ConsoleLogger;
 import com.soybeany.cache.v2.model.DataPack;
 import com.soybeany.cache.v2.storage.LruMemCacheStorage;
+import com.soybeany.cache.v2.storage.StdKeyLock;
 import org.junit.Test;
 
 import java.util.List;
@@ -293,7 +294,7 @@ public class MixedConfigDMTest {
                 .withCache(storage)
                 .logger(new ConsoleLogger())
                 .datasourceTimeout(p -> 50L)     // 数据源超时50ms
-                .fetchLockTimeout(p -> 5000L) // fetchLock超时5s（不影响datasourceTimeout）
+                .fetchLock(new StdKeyLock("fetch", p -> 5000L)) // fetchLock超时5s（不影响datasourceTimeout）
                 .build();
         // datasourceTimeout会先触发，返回CacheWaitException
         DataPack<String> pack = manager.getDataPack("key");

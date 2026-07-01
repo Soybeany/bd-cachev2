@@ -1,10 +1,12 @@
 package com.soybeany.cache.v2.contract.frame;
 
 
-public interface IKeyLock<L> {
+public interface IKeyLock {
 
-    L onTryLock(String key);
+    void onTryLock(String key);
 
-    void onUnlock(L lock);
+    void onUnlock(String key);
+
+    void cancelIfWaiting(Thread thread);
 
 }

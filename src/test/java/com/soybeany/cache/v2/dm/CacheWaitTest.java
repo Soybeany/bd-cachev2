@@ -5,6 +5,7 @@ import com.soybeany.cache.v2.core.DataManager;
 import com.soybeany.cache.v2.exception.CacheWaitException;
 import com.soybeany.cache.v2.log.ConsoleLogger;
 import com.soybeany.cache.v2.storage.LruMemCacheStorage;
+import com.soybeany.cache.v2.storage.StdKeyLock;
 import org.junit.Test;
 
 import java.util.ArrayList;
@@ -77,7 +78,7 @@ public class CacheWaitTest {
                 .get("锁测试", ds)
                 .withCache(new LruMemCacheStorage.Builder<String, String>().build())
                 .logger(new ConsoleLogger())
-                .fetchLockTimeout(p -> fetchLockTimeoutMs)
+                .fetchLock(new StdKeyLock("fetch", p -> fetchLockTimeoutMs))
                 .build();
     }
 }

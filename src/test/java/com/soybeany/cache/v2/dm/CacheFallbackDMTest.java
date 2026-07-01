@@ -9,6 +9,8 @@ import com.soybeany.cache.v2.model.DataPack;
 import com.soybeany.cache.v2.storage.LruMemCacheStorage;
 import org.junit.Test;
 
+import java.util.concurrent.atomic.AtomicInteger;
+
 /**
  * 测试短超时回退模式<br>
  * 对应{@link com.soybeany.cache.v2.core.DataManager#getDataPackWithCacheFallback}
@@ -295,6 +297,101 @@ public class CacheFallbackDMTest {
         DataManager<String, String> manager = createManager(fastDatasource);
         String data = manager.getDataWithCacheFallback("key", 100L);
         assert "新数据".equals(data);
+    }
+
+    // ********************子线程精确中断测试********************
+
+    @Test
+    public void fallback降级后_等待fetchLock的子线程被中断() throws Exception {
+        // 场景：线程A持锁访问慢数据源期间，fallback的子线程等待fetchLock时被cancelIfWaiting中断
+        ICacheStorage<String, String> storage = new LruMemCacheStorage.Builder<String, String>().pTtl(80).build();
+        AtomicInteger dsCallCount = new AtomicInteger(0);
+        IDatasource<String, String> slowDs = s -> {
+            dsCallCount.incrementAndGet();
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException ignore) {
+            }
+            return "T0数据";
+        };
+        DataManager<String, String> manager = DataManager.Builder
+                .get("中断测试", slowDs)
+                .withCache(storage)
+                .logger(new ConsoleLogger())
+                .fetchLockTimeout(p -> 5000L)
+                .build();
+
+        String key = "interrupt_blocked";
+        // 写入初始缓存并等待过期
+        manager.getDataPack(key, s -> "旧数据");
+        Thread.sleep(100);
+
+        // T0: 独立线程持锁访问数据源（1s）
+        Thread threadA = new Thread(() -> manager.getData(key));
+        threadA.start();
+        Thread.sleep(50); // 确保T0获取到锁
+
+        // T1: fallback降级，子线程在等待fetchLock时被中断
+        long t1 = System.currentTimeMillis();
+        String resultB = manager.getDataWithCacheFallback(key, 100L);
+        long t2 = System.currentTimeMillis();
+        assert "旧数据".equals(resultB) : "应降级返回过期数据";
+        assert (t2 - t1) < 300 : "应快速返回，实际耗时:" + (t2 - t1);
+
+        // 等待T0完成
+        threadA.join(2000);
+
+        // 验证：缓存中最终有T0写入的数据（子线程被中断不会写入数据，T0正常写入）
+        DataPack<String> packC = manager.getDataPack(key);
+        assert "T0数据".equals(packC.getData()) : "缓存中应有T0写入的数据";
+        assert packC.provider instanceof ICacheStorage : "数据应从缓存读取";
+
+        // 验证：数据源只被T0访问了1次（子线程被中断，未访问数据源）
+        assert dsCallCount.get() == 1 : "数据源应只被访问1次，实际:" + dsCallCount.get();
+        System.out.println("中断测试 - dsCallCount:" + dsCallCount.get() + ", fallback耗时:" + (t2 - t1) + "ms");
+    }
+
+    @Test
+    public void fallback降级后_已获锁子线程不被中断_数据源正常完成() throws Exception {
+        // 场景：fallback调用时子线程已获得fetchLock并正在处理数据源，不应对其进行中断
+        // 无初始缓存（fallback只会返回异常包），子线程获取锁后正常访问数据源并写入缓存
+        ICacheStorage<String, String> storage = new LruMemCacheStorage.Builder<String, String>().build();
+        AtomicInteger dsCallCount = new AtomicInteger(0);
+        IDatasource<String, String> slowDs = s -> {
+            dsCallCount.incrementAndGet();
+            try {
+                Thread.sleep(500);
+            } catch (InterruptedException ignore) {
+            }
+            return "S1数据";
+        };
+        DataManager<String, String> manager = DataManager.Builder
+                .get("已获锁不中断测试", slowDs)
+                .withCache(storage)
+                .logger(new ConsoleLogger())
+                .fetchLockTimeout(p -> 2000L)
+                .build();
+
+        String key = "interrupt_acquired";
+
+        // fallback调用，子线程立即获取fetchLock（无竞争），开始处理数据源
+        // 主线程100ms超时，此时子线程正在数据源处理中（500ms）
+        long t1 = System.currentTimeMillis();
+        DataPack<String> fallbackPack = manager.getDataPackWithCacheFallback(key, 100L);
+        long t2 = System.currentTimeMillis();
+        assert !fallbackPack.norm() : "无缓存时fallback应返回异常包";
+        assert (t2 - t1) < 300 : "应快速返回，实际耗时:" + (t2 - t1);
+
+        // 等待子线程完成（数据源500ms + 回写时间）
+        Thread.sleep(700);
+
+        // 验证：子线程未被中断，数据源正常完成，缓存中有S1写入的数据
+        DataPack<String> pack = manager.getDataPack(key);
+        assert "S1数据".equals(pack.getData()) : "缓存中应有子线程写入的S1数据";
+        assert pack.provider instanceof ICacheStorage : "数据应从缓存读取";
+        // 数据源应只被访问1次（仅子线程访问）
+        assert dsCallCount.get() == 1 : "数据源应只被访问1次，实际:" + dsCallCount.get();
+        System.out.println("已获锁不中断测试 - 缓存数据:" + pack.getData() + ", fallback耗时:" + (t2 - t1) + "ms, dsCallCount:" + dsCallCount.get());
     }
 
     // ********************内部方法********************

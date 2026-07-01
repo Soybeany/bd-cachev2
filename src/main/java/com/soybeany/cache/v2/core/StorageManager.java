@@ -1,7 +1,7 @@
 package com.soybeany.cache.v2.core;
 
 import com.soybeany.cache.v2.contract.frame.ICacheStorage;
-import com.soybeany.cache.v2.contract.frame.IKeyLock;
+import com.soybeany.cache.v2.storage.StdKeyLock;
 import com.soybeany.cache.v2.contract.user.ICacheChecker;
 import com.soybeany.cache.v2.contract.user.IDatasource;
 import com.soybeany.cache.v2.contract.user.IOnInvalidListener;
@@ -32,7 +32,7 @@ class StorageManager<Param, Data> {
     private DataContext context;
     private ICheckHolder<Param, Data> checkerHolder = (param, supplier) -> supplier.get();
     private boolean enableRenewExpiredCache;
-    private IKeyLock<Lock> fetchLockSupport;
+    private StdKeyLock fetchLockSupport;
     private Function<String, Long> fetchLockTimeoutSingleSupplier = k -> LOCK_WAIT_TIME_DEFAULT;
     private Function<String, Long> datasourceTimeoutSupplier = k -> LOCK_WAIT_TIME_DEFAULT;
 
@@ -167,12 +167,19 @@ class StorageManager<Param, Data> {
      * <br>使用短超时访问数据源，超时后回退到过期缓存
      */
     public DataPack<Data> getDataPackWithCacheFallback(DataParam<Param> param, IDatasource<Param, Data> datasource, boolean needStore, long quickTimeoutMs, Function<DataPack<Data>, DataPack<Data>> fallbackProcessor) {
-        // 1. 异步获取新数据(完整超时)
-        Future<DataPack<Data>> future = DATASOURCE_EXECUTOR.submit(() -> getDataPack(param, datasource, needStore));
+        // 1. 捕获子线程引用，用于fallback时精确中断
+        Thread[] subThreadRef = new Thread[1];
+        Future<DataPack<Data>> future = DATASOURCE_EXECUTOR.submit(() -> {
+            subThreadRef[0] = Thread.currentThread();
+            return getDataPack(param, datasource, needStore);
+        });
         // 2. 短超时等待
         try {
             return future.get(quickTimeoutMs, TimeUnit.MILLISECONDS);
         } catch (TimeoutException | InterruptedException e) {
+            if (null != subThreadRef[0]) {
+                fetchLockSupport.cancelIfWaiting(subThreadRef[0]);
+            }
             return fallbackProcessor.apply(onGetCacheDataPack(0, param));
         } catch (ExecutionException e) {
             Throwable cause = e.getCause();

@@ -66,7 +66,7 @@ public class DatasourceTimeoutTest {
                 .get("数据源超时测试", datasource)
                 .withCache(storage)
                 .logger(new ConsoleLogger())
-                .datasourceTimeout(p -> TIMEOUT_MS)
+                .enableAsyncDatasource(p -> TIMEOUT_MS)
                 .build();
     }
 }

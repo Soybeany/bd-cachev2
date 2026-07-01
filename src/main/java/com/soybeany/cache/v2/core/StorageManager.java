@@ -23,7 +23,11 @@ import java.util.stream.Collectors;
 
 class StorageManager<Param, Data> {
 
-    private static final long LOCK_WAIT_TIME_DEFAULT = 30 * 1000;
+    private static final ExecutorService DEFAULT_ASYNC_FETCH_EXECUTOR = Executors.newCachedThreadPool(r -> {
+        Thread t = new Thread(r, "bd-cache-afe");
+        t.setDaemon(true);
+        return t;
+    });
 
     private final LinkedList<ICacheStorage<Param, Data>> storages = new LinkedList<>();
     private final Set<IOnInvalidListener<Param>> onInvalidListeners = new HashSet<>();
@@ -31,19 +35,24 @@ class StorageManager<Param, Data> {
     private DataContext context;
     private ICheckHolder<Param, Data> checkerHolder = (param, supplier) -> supplier.get();
     private boolean enableRenewExpiredCache;
-    private IKeyLock fetchLock = new StdKeyLock("fetch", k -> LOCK_WAIT_TIME_DEFAULT);
-    private Function<String, Long> datasourceTimeoutSupplier = k -> LOCK_WAIT_TIME_DEFAULT;
+    private IKeyLock fetchLock = new StdKeyLock("fetch", k -> 30 * 1000L);
+    private Function<String, Long> datasourceTimeoutSupplier;
 
-    private ExecutorService asyncFetchExecutor = Executors.newCachedThreadPool(r -> {
-        Thread t = new Thread(r, "bd-cache-ds");
-        t.setDaemon(true);
-        return t;
-    });
+    private ExecutorService asyncFetchExecutor = DEFAULT_ASYNC_FETCH_EXECUTOR;
 
-    public DataPack<Data> getDataDirectly(Object noDatasourceInvoker, Param param, IDatasource<Param, Data> datasource, long timeoutMs) {
+    public DataPack<Data> getDataDirectly(Object noDatasourceInvoker, Param param, IDatasource<Param, Data> datasource, Long timeoutMs) {
         // 没有指定数据源
         if (null == datasource) {
             return new DataPack<>(DataCore.fromException(new NoDataSourceException()), noDatasourceInvoker, Long.MAX_VALUE);
+        }
+        // 同步模式（不开启异步数据源访问）
+        if (null == timeoutMs) {
+            try {
+                Data data = datasource.onGetData(param);
+                return new DataPack<>(DataCore.fromData(data), datasource, datasource.onSetupExpiry(param, data));
+            } catch (RuntimeException e) {
+                return new DataPack<>(DataCore.fromException(e), datasource, datasource.onSetupExpiry(param, e));
+            }
         }
         // 异步执行+超时
         try {
@@ -131,12 +140,12 @@ class StorageManager<Param, Data> {
         this.enableRenewExpiredCache = enableRenewExpiredCache;
     }
 
-    public void setDatasourceTimeout(Function<String, Long> supplier) {
+    public void setAsyncDatasourceConfig(Function<String, Long> supplier) {
         this.datasourceTimeoutSupplier = supplier;
     }
 
-    public long getDatasourceTimeout(String paramKey) {
-        return datasourceTimeoutSupplier.apply(paramKey);
+    public Long getDatasourceTimeout(String paramKey) {
+        return null != datasourceTimeoutSupplier ? datasourceTimeoutSupplier.apply(paramKey) : null;
     }
 
     public void setFetchLock(IKeyLock fetchLock) {

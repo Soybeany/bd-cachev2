@@ -131,7 +131,7 @@ public class DataManager<Param, Data> {
     public DataPack<Data> getDataPackDirectly(Param param) {
         context.logger.onStart();
         DataParam<Param> dataParam = toDataParam(param);
-        long datasourceTimeout = storageManager.getDatasourceTimeout(dataParam.paramKey);
+        Long datasourceTimeout = storageManager.getDatasourceTimeout(dataParam.paramKey);
         DataPack<Data> pack = storageManager.getDataDirectly(this, param, defaultDatasource, datasourceTimeout);
         // 记录日志
         context.logger.onGetData(dataParam, pack, false);
@@ -378,11 +378,12 @@ public class DataManager<Param, Data> {
         }
 
         /**
-         * 配置数据源访问超时(毫秒)
-         * <br>* 默认值为30秒
+         * 启用异步数据源访问，并配置超时(毫秒)
+         * <br>* 默认不启用，为同步模式
+         * @param timeoutSupplier 返回null等同于同步模式
          */
-        public Builder<Param, Data> datasourceTimeout(Function<String, Long> supplier) {
-            storageManager.setDatasourceTimeout(supplier);
+        public Builder<Param, Data> enableAsyncDatasource(Function<String, Long> timeoutSupplier) {
+            storageManager.setAsyncDatasourceConfig(timeoutSupplier);
             return this;
         }
 

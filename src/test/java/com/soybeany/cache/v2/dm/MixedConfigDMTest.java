@@ -271,7 +271,7 @@ public class MixedConfigDMTest {
                 })
                 .withCache(storage)
                 .logger(new ConsoleLogger())
-                .datasourceTimeout(p -> 10L)
+                .enableAsyncDatasource(p -> 10L)
                 .build();
         // fallback调用时，异步getDataPack因datasourceTimeout快速失败，进入ExecutionException分支
         DataPack<String> pack = manager.getDataPackWithCacheFallback("no_cache_key", 2000L);
@@ -293,7 +293,7 @@ public class MixedConfigDMTest {
                 })
                 .withCache(storage)
                 .logger(new ConsoleLogger())
-                .datasourceTimeout(p -> 50L)     // 数据源超时50ms
+                .enableAsyncDatasource(p -> 50L)     // 数据源超时50ms
                 .fetchLock(new StdKeyLock("fetch", p -> 5000L)) // fetchLock超时5s（不影响datasourceTimeout）
                 .build();
         // datasourceTimeout会先触发，返回CacheWaitException

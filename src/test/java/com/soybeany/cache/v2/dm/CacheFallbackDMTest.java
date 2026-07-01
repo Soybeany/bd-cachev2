@@ -110,6 +110,7 @@ public class CacheFallbackDMTest {
         DataPack<String> pack = manager.getDataPackWithCacheFallback("spec_ds", fastDatasource);
         assert pack.norm();
         assert "新数据".equals(pack.getData());
+        assert fastDatasource.equals(pack.provider) : "应使用指定的数据源";
     }
 
     @Test
@@ -119,6 +120,7 @@ public class CacheFallbackDMTest {
         DataPack<String> pack = manager.getDataPackWithCacheFallback("spec_ds_timeout", fastDatasource, 500L);
         assert pack.norm();
         assert "新数据".equals(pack.getData());
+        assert fastDatasource.equals(pack.provider) : "应使用指定的数据源";
     }
 
     @Test
@@ -129,9 +131,9 @@ public class CacheFallbackDMTest {
         // 用快速数据源写入缓存
         manager.getDataPack(key, fastDatasource);
         Thread.sleep(250);
-        // 使用自定义fallback处理器
+        // 使用自定义fallback处理器，传入slowDatasource触发超时fallback路径
         DataPack<String> pack = manager.getDataPackWithCacheFallback(
-                key, null, 500L,
+                key, slowDatasource, 500L,
                 expiredPack -> {
                     if (expiredPack.norm()) {
                         return expiredPack;

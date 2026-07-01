@@ -1,7 +1,6 @@
 package com.soybeany.cache.v2.storage;
 
 import com.soybeany.cache.v2.contract.frame.ICacheStorage;
-import com.soybeany.cache.v2.contract.frame.ILockSupport;
 import com.soybeany.cache.v2.exception.BdCacheException;
 import com.soybeany.cache.v2.exception.NoCacheException;
 import com.soybeany.cache.v2.model.CacheEntity;
@@ -13,7 +12,6 @@ import java.lang.ref.SoftReference;
 import java.lang.ref.WeakReference;
 import java.lang.reflect.Type;
 import java.util.*;
-import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Function;
@@ -22,29 +20,15 @@ import java.util.function.Function;
  * @author Soybeany
  * @date 2022/2/9
  */
-public class LruMemCacheStorage<Param, Data> extends StdStorage<Param, Data> implements ILockSupport<Lock, Object> {
+public class LruMemCacheStorage<Param, Data> extends StdStorage<Param, Data> {
     private static final String DESC = "LRU";
 
-    private final ILockSupport<Lock, Object> locker;
-    private final MapStorage<Data> mapStorage;
-    private final Type deppCopyType;
     private final ReadWriteLock rwLock = new ReentrantReadWriteLock();
+    private final Type deppCopyType;
+    private final MapStorage<Data> mapStorage;
 
-    public LruMemCacheStorage(long pTtl, long pTtlErr, int capacity) {
-        this(pTtl, pTtlErr, capacity, null);
-    }
-
-    public LruMemCacheStorage(long pTtl, long pTtlErr, int capacity, Type deppCopyType) {
-        this(pTtl, pTtlErr, capacity, deppCopyType, new StdLockSupport(DESC, k -> 5000L, KeyLock.LOCK_WAIT_TIME_DEFAULT));
-    }
-
-    public LruMemCacheStorage(long pTtl, long pTtlErr, int capacity, Type deppCopyType, ILockSupport<Lock, Object> locker) {
-        this(pTtl, pTtlErr, deppCopyType, locker, new SimpleImpl<>(new LruMap<>(capacity)));
-    }
-
-    private LruMemCacheStorage(long pTtl, long pTtlErr, Type deppCopyType, ILockSupport<Lock, Object> locker, MapStorage<Data> storage) {
+    private LruMemCacheStorage(long pTtl, long pTtlErr, Type deppCopyType, MapStorage<Data> storage) {
         super(pTtl, pTtlErr);
-        this.locker = locker;
         this.deppCopyType = deppCopyType;
         mapStorage = storage;
     }
@@ -157,26 +141,6 @@ public class LruMemCacheStorage<Param, Data> extends StdStorage<Param, Data> imp
         }
     }
 
-    @Override
-    public Lock onTryLock(String key) {
-        return locker.onTryLock(key);
-    }
-
-    @Override
-    public void onUnlock(Lock lock) {
-        locker.onUnlock(lock);
-    }
-
-    @Override
-    public Object onTryLockAll() {
-        return locker.onTryLockAll();
-    }
-
-    @Override
-    public void onUnlockAll(Object lock) {
-        locker.onUnlockAll(lock);
-    }
-
     // ***********************内部类****************************
 
     public static class Builder<Param, Data> extends StdStorageBuilder<Param, Data> {
@@ -185,8 +149,6 @@ public class LruMemCacheStorage<Param, Data> extends StdStorage<Param, Data> imp
          */
         protected int capacity = 100;
         protected boolean weakRef;
-        protected Function<String, Long> lockWaitTimeSingleSupplier;
-        protected Long lockWaitTimeAll;
         protected Type deppCopyType;
 
         public Builder<Param, Data> capacity(int capacity) {
@@ -200,18 +162,6 @@ public class LruMemCacheStorage<Param, Data> extends StdStorage<Param, Data> imp
         }
 
         @SuppressWarnings("unused")
-        public Builder<Param, Data> lockWaitTimeSingle(Function<String, Long> supplier) {
-            lockWaitTimeSingleSupplier = supplier;
-            return this;
-        }
-
-        @SuppressWarnings("unused")
-        public Builder<Param, Data> lockWaitTimeAll(long millis) {
-            lockWaitTimeAll = millis;
-            return this;
-        }
-
-        @SuppressWarnings("unused")
         public Builder<Param, Data> deepCopy(Type type) {
             this.deppCopyType = type;
             return this;
@@ -220,7 +170,7 @@ public class LruMemCacheStorage<Param, Data> extends StdStorage<Param, Data> imp
         @Override
         protected ICacheStorage<Param, Data> onBuild() {
             RefImpl<Data> storage = weakRef ? new RefImpl<>(capacity, WeakReference::new) : new RefImpl<>(capacity, SoftReference::new);
-            return new LruMemCacheStorage<>(pTtl, pTtlErr, deppCopyType, new StdLockSupport(DESC, lockWaitTimeSingleSupplier, lockWaitTimeAll), storage);
+            return new LruMemCacheStorage<>(pTtl, pTtlErr, deppCopyType, storage);
         }
 
         @Override
@@ -249,30 +199,6 @@ public class LruMemCacheStorage<Param, Data> extends StdStorage<Param, Data> imp
         Optional<CacheEntity<Data>> onLoad(String key);
 
         void onSave(String key, CacheEntity<Data> entity);
-    }
-
-    private static class SimpleImpl<Data> implements MapStorage<Data> {
-
-        private final LruMap<String, CacheEntity<Data>> lruMap;
-
-        public SimpleImpl(LruMap<String, CacheEntity<Data>> lruMap) {
-            this.lruMap = lruMap;
-        }
-
-        @Override
-        public Map<String, ?> getMap() {
-            return lruMap;
-        }
-
-        @Override
-        public Optional<CacheEntity<Data>> onLoad(String key) {
-            return Optional.ofNullable(lruMap.get(key));
-        }
-
-        @Override
-        public void onSave(String key, CacheEntity<Data> entity) {
-            lruMap.put(key, entity);
-        }
     }
 
     private static class RefImpl<Data> implements MapStorage<Data> {

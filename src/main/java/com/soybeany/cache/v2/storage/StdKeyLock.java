@@ -14,7 +14,7 @@ import java.util.function.Function;
 /**
  * 单锁支持（仅支持按key加锁，不支持全局锁）
  */
-public class KeyLock implements IKeyLock<Lock> {
+public class StdKeyLock implements IKeyLock<Lock> {
     public static final long LOCK_WAIT_TIME_DEFAULT = 30 * 1000;
 
     protected final String desc;
@@ -22,11 +22,7 @@ public class KeyLock implements IKeyLock<Lock> {
     protected final Lock mapLock = new ReentrantLock();
     protected final Function<String, Long> lockWaitTimeSupplier;
 
-    public KeyLock(String desc) {
-        this(desc, null);
-    }
-
-    public KeyLock(String desc, Function<String, Long> lockWaitTimeSupplier) {
+    public StdKeyLock(String desc, Function<String, Long> lockWaitTimeSupplier) {
         this.desc = desc;
         this.lockWaitTimeSupplier = Optional.ofNullable(lockWaitTimeSupplier).orElse(param -> LOCK_WAIT_TIME_DEFAULT);
     }
@@ -45,7 +41,7 @@ public class KeyLock implements IKeyLock<Lock> {
 
     // ***********************内部方法****************************
 
-    protected void tryLock(String descDetail, Lock lock, long lockWaitTime) {
+    private void tryLock(String descDetail, Lock lock, long lockWaitTime) {
         try {
             if (!lock.tryLock(lockWaitTime, TimeUnit.MILLISECONDS)) {
                 throw new CacheWaitException("锁超时(" + desc + "-" + descDetail + ")");
@@ -55,7 +51,7 @@ public class KeyLock implements IKeyLock<Lock> {
         }
     }
 
-    protected Lock getLock(String key) {
+    private Lock getLock(String key) {
         mapLock.lock();
         try {
             return lockMap.computeIfAbsent(key, k -> new ReentrantLock());

@@ -22,7 +22,7 @@ public class InvalidDMTest {
     private final DataManager<String, String> dataManager = DataManager.Builder
             .get("失效测试", normDatasource)
             .withCache(storage)
-            .onInvalidListener((k, i) -> a++)
+            .onInvalidListener((k, onSuccess, onException) -> a++)
             .enableRenewExpiredCache(true)
             .logger(new ConsoleLogger())
             .build();

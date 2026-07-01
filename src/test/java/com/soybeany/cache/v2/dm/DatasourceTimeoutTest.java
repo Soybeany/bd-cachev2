@@ -12,7 +12,6 @@ import org.junit.Test;
 public class DatasourceTimeoutTest {
 
     private static final long TIMEOUT_MS = 100;
-    private static final long LOCK_WAIT_MS = 5000;
 
     private final IDatasource<String, String> slowDatasource = s -> {
         try {
@@ -61,8 +60,6 @@ public class DatasourceTimeoutTest {
     private DataManager<String, String> createManager(IDatasource<String, String> datasource) {
         ICacheStorage<String, String> storage = new LruMemCacheStorage.Builder<String, String>()
                 .capacity(3)
-                .lockWaitTimeSingle(p -> LOCK_WAIT_MS)
-                .lockWaitTimeAll(LOCK_WAIT_MS)
                 .pTtl(200)
                 .build();
         return DataManager.Builder

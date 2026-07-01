@@ -24,7 +24,7 @@ import java.util.function.Function;
  * 数据管理器，提供数据自动缓存/读取的核心功能
  *
  * @author Soybeany
- * @date 2020/1/19
+ * @since 2020/1/19
  */
 @SuppressWarnings({"UnusedReturnValue", "unused"})
 public class DataManager<Param, Data> {
@@ -198,30 +198,30 @@ public class DataManager<Param, Data> {
     /**
      * 缓存数据，手动模式管理
      */
-    public void cacheData(Param param, Data data) {
+    public Map<Integer, Exception> cacheData(Param param, Data data) {
         context.logger.onStart();
-        innerCacheData(param, DataCore.fromData(data));
+        return innerCacheData(param, DataCore.fromData(data));
     }
 
     /**
      * 缓存异常，手动模式管理
      */
-    public void cacheException(Param param, RuntimeException e) {
+    public Map<Integer, Exception> cacheException(Param param, RuntimeException e) {
         context.logger.onStart();
-        innerCacheData(param, DataCore.fromException(e));
+        return innerCacheData(param, DataCore.fromException(e));
     }
 
     /**
      * 批量缓存数据，手动模式管理
      */
-    public void batchCacheData(Map<Param, Data> data) {
-        batchCache(data, null);
+    public Map<Integer, Exception> batchCacheData(Map<Param, Data> data) {
+        return batchCache(data, null);
     }
 
     /**
      * 批量缓存数据/异常，手动模式管理
      */
-    public void batchCache(Map<Param, Data> data, Map<Param, RuntimeException> exceptions) {
+    public Map<Integer, Exception> batchCache(Map<Param, Data> data, Map<Param, RuntimeException> exceptions) {
         context.logger.onStart();
         Map<Param, DataCore<Data>> dataCores = new HashMap<>();
         if (null != data) {
@@ -230,49 +230,53 @@ public class DataManager<Param, Data> {
         if (null != exceptions) {
             exceptions.forEach((k, v) -> dataCores.put(k, DataCore.fromException(v)));
         }
-        innerBatchCacheData(dataCores);
+        return innerBatchCacheData(dataCores);
     }
 
     /**
      * 失效指定存储器中指定key的缓存
      */
-    public void invalidCache(Param param, int... storageIndexes) {
+    public Map<Integer, Exception> invalidCache(Param param, int... storageIndexes) {
         context.logger.onStart();
         DataParam<Param> dataParam = toDataParam(param);
-        storageManager.invalidCache(dataParam, storageIndexes);
+        Map<Integer, Exception> result = storageManager.invalidCache(dataParam, storageIndexes);
         // 记录日志
         context.logger.onInvalidCache(dataParam, storageIndexes);
+        return result;
     }
 
     /**
      * 失效指定存储器中全部缓存
      */
-    public void invalidAllCache(int... storageIndexes) {
+    public Map<Integer, Exception> invalidAllCache(int... storageIndexes) {
         context.logger.onStart();
-        storageManager.invalidAllCache(storageIndexes);
+        Map<Integer, Exception> result = storageManager.invalidAllCache(storageIndexes);
         // 记录日志
         context.logger.onInvalidAllCache(storageIndexes);
+        return result;
     }
 
     /**
      * 移除指定存储器中指定key的缓存
      */
-    public void removeCache(Param param, int... storageIndexes) {
+    public Map<Integer, Exception> removeCache(Param param, int... storageIndexes) {
         context.logger.onStart();
         DataParam<Param> dataParam = toDataParam(param);
-        storageManager.removeCache(dataParam, storageIndexes);
+        Map<Integer, Exception> result = storageManager.removeCache(dataParam, storageIndexes);
         // 记录日志
         context.logger.onRemoveCache(dataParam, storageIndexes);
+        return result;
     }
 
     /**
      * 清除指定存储器中全部的缓存
      */
-    public void clearCache(int... storageIndexes) {
+    public Map<Integer, Exception> clearCache(int... storageIndexes) {
         context.logger.onStart();
-        storageManager.clearCache(storageIndexes);
+        Map<Integer, Exception> result = storageManager.clearCache(storageIndexes);
         // 记录日志
         context.logger.onClearCache(storageIndexes);
+        return result;
     }
 
     /**
@@ -310,22 +314,24 @@ public class DataManager<Param, Data> {
         return new DataParam<>(paramDesc, paramKey, param);
     }
 
-    private void innerCacheData(Param param, DataCore<Data> dataCore) {
+    private Map<Integer, Exception> innerCacheData(Param param, DataCore<Data> dataCore) {
         DataParam<Param> dataParam = toDataParam(param);
         DataPack<Data> pack = new DataPack<>(dataCore, this, Long.MAX_VALUE);
-        storageManager.cacheData(dataParam, pack);
+        Map<Integer, Exception> result = storageManager.cacheData(dataParam, pack);
         // 记录日志
         context.logger.onCacheData(dataParam, pack);
+        return result;
     }
 
-    private void innerBatchCacheData(Map<Param, DataCore<Data>> dataCores) {
+    private Map<Integer, Exception> innerBatchCacheData(Map<Param, DataCore<Data>> dataCores) {
         Map<DataParam<Param>, DataPack<Data>> dataPacks = new HashMap<>();
         dataCores.forEach((param, dataCore) ->
                 dataPacks.put(toDataParam(param), new DataPack<>(dataCore, this, Long.MAX_VALUE))
         );
-        storageManager.batchCacheData(dataPacks);
+        Map<Integer, Exception> result = storageManager.batchCacheData(dataPacks);
         // 记录日志
         context.logger.onBatchCacheData(dataPacks);
+        return result;
     }
 
     // ********************内部类********************

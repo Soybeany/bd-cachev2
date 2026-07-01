@@ -4,7 +4,6 @@ import com.soybeany.cache.v2.contract.frame.ICacheStorage;
 import com.soybeany.cache.v2.core.DataManager;
 import com.soybeany.cache.v2.log.ConsoleLogger;
 import com.soybeany.cache.v2.model.DataPack;
-import com.soybeany.cache.v2.model.DataParam;
 import com.soybeany.cache.v2.storage.LruMemCacheStorage;
 import org.junit.Test;
 
@@ -15,10 +14,10 @@ import java.util.UUID;
  */
 public class MultiKeyDMTest {
 
-    private final ICacheStorage<String, String> lruStorage = new TestStorage<>(800);
+    private final ICacheStorage<String, String> lruStorage = new LruMemCacheStorage.Builder<String, String>().pTtl(800).build();
 
     private final DataManager<String, String> dataManager = DataManager.Builder
-            .get("MultiExpiry", s -> {
+            .get("MultiKey", s -> {
                 System.out.println("“" + s + "”access datasource");
                 try {
                     Thread.sleep(500);
@@ -48,27 +47,7 @@ public class MultiKeyDMTest {
         }
         long delta = System.currentTimeMillis() - start;
         System.out.println("时差:" + delta);
-        // 不能高于2秒：访问数据源不允许串行；整体执行效率也不能过低
+        // 不同key可以并行访问数据源，整体执行时间应远小于 count * 500ms
         assert delta < 2000 : "并行耗时应小于2000ms，实际: " + delta;
     }
-
-    private static class TestStorage<Param, Data> extends LruMemCacheStorage<Param, Data> {
-
-        public TestStorage(int pTtl) {
-            super(pTtl, 60 * 1000, 100);
-        }
-
-        @SuppressWarnings("CallToPrintStackTrace")
-        @Override
-        public DataPack<Data> onCacheData(DataParam<Param> param, DataPack<Data> dataPack) {
-            System.out.println("存数据:" + param.paramKey);
-            try {
-                Thread.sleep(100);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-            return super.onCacheData(param, dataPack);
-        }
-    }
-
 }

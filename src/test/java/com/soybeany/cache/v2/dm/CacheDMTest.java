@@ -1,5 +1,6 @@
 package com.soybeany.cache.v2.dm;
 
+import com.soybeany.cache.v2.component.DBSimulationStorage;
 import com.soybeany.cache.v2.contract.frame.ICacheStorage;
 import com.soybeany.cache.v2.contract.user.IDatasource;
 import com.soybeany.cache.v2.core.DataManager;
@@ -69,6 +70,28 @@ public class CacheDMTest {
         errManager.getDataPack(key);
         DataPack<String> pack = errManager.getCacheDataPack(key);
         assert !pack.norm();
+    }
+
+    @Test
+    public void getCacheDataPack_多级缓存中下层有数据时提升到上层() throws Exception {
+        ICacheStorage<String, String> l1 = new LruMemCacheStorage.Builder<String, String>().pTtl(200).build();
+        ICacheStorage<String, String> l2 = new DBSimulationStorage<>(60_000);
+        DataManager<String, String> manager = DataManager.Builder
+                .get("多级缓存提升测试", datasource)
+                .withCache(l1)
+                .withCache(l2)
+                .build();
+        String key = "promo_cache";
+        // 从数据源获取，写入l1和l2
+        manager.getDataPack(key);
+        // 等待l1过期
+        Thread.sleep(250);
+        // getCacheDataPack应从l2获取，且数据提升到l1
+        DataPack<String> pack1 = manager.getCacheDataPack(key);
+        assert pack1.norm() : "应返回缓存数据";
+        // 再次调用getCacheDataPack，应从l1获取（数据已提升）
+        DataPack<String> pack2 = manager.getCacheDataPack(key);
+        assert l1.equals(pack2.provider) : "数据提升后应从l1获取，实际: " + pack2.provider;
     }
 
     // ********************getCache********************

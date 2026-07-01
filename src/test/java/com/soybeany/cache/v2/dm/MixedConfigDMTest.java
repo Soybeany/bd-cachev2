@@ -2,7 +2,6 @@ package com.soybeany.cache.v2.dm;
 
 import com.soybeany.cache.v2.component.DBSimulationStorage;
 import com.soybeany.cache.v2.contract.frame.ICacheStorage;
-import com.soybeany.cache.v2.contract.user.ICacheChecker;
 import com.soybeany.cache.v2.contract.user.IDatasource;
 import com.soybeany.cache.v2.contract.user.IKeyConverter;
 import com.soybeany.cache.v2.core.DataManager;
@@ -284,8 +283,6 @@ public class MixedConfigDMTest {
     public void fetchTimeout_datasourceTimeout共同配置() {
         // 两个超时都配置，验证各自独立工作
         ICacheStorage<String, String> storage = new LruMemCacheStorage.Builder<String, String>()
-                .lockWaitTimeSingle(p -> 5000L)
-                .lockWaitTimeAll(5000L)
                 .pTtl(200)
                 .build();
         DataManager<String, String> manager = DataManager.Builder

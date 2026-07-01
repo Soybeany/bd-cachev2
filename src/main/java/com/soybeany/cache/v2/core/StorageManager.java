@@ -2,7 +2,6 @@ package com.soybeany.cache.v2.core;
 
 import com.soybeany.cache.v2.contract.frame.ICacheStorage;
 import com.soybeany.cache.v2.contract.frame.IKeyLock;
-import com.soybeany.cache.v2.storage.StdKeyLock;
 import com.soybeany.cache.v2.contract.user.ICacheChecker;
 import com.soybeany.cache.v2.contract.user.IDatasource;
 import com.soybeany.cache.v2.contract.user.IOnInvalidListener;
@@ -13,6 +12,7 @@ import com.soybeany.cache.v2.model.DataContext;
 import com.soybeany.cache.v2.model.DataCore;
 import com.soybeany.cache.v2.model.DataPack;
 import com.soybeany.cache.v2.model.DataParam;
+import com.soybeany.cache.v2.storage.StdKeyLock;
 
 import java.util.*;
 import java.util.concurrent.*;
@@ -34,20 +34,20 @@ class StorageManager<Param, Data> {
     private IKeyLock fetchLock = new StdKeyLock("fetch", k -> LOCK_WAIT_TIME_DEFAULT);
     private Function<String, Long> datasourceTimeoutSupplier = k -> LOCK_WAIT_TIME_DEFAULT;
 
-    private static final ExecutorService DATASOURCE_EXECUTOR = Executors.newCachedThreadPool(r -> {
+    private ExecutorService asyncFetchExecutor = Executors.newCachedThreadPool(r -> {
         Thread t = new Thread(r, "bd-cache-ds");
         t.setDaemon(true);
         return t;
     });
 
-    public static <Param, Data> DataPack<Data> getDataDirectly(Object noDatasourceInvoker, Param param, IDatasource<Param, Data> datasource, long timeoutMs) {
+    public DataPack<Data> getDataDirectly(Object noDatasourceInvoker, Param param, IDatasource<Param, Data> datasource, long timeoutMs) {
         // 没有指定数据源
         if (null == datasource) {
             return new DataPack<>(DataCore.fromException(new NoDataSourceException()), noDatasourceInvoker, Long.MAX_VALUE);
         }
         // 异步执行+超时
         try {
-            Future<Data> future = DATASOURCE_EXECUTOR.submit(() -> datasource.onGetData(param));
+            Future<Data> future = asyncFetchExecutor.submit(() -> datasource.onGetData(param));
             Data data;
             try {
                 data = future.get(timeoutMs, TimeUnit.MILLISECONDS);
@@ -143,6 +143,10 @@ class StorageManager<Param, Data> {
         this.fetchLock = fetchLock;
     }
 
+    public void setAsyncFetchExecutor(ExecutorService asyncFetchExecutor) {
+        this.asyncFetchExecutor = asyncFetchExecutor;
+    }
+
     public void init(DataContext context) {
         this.context = context;
         if (storages.isEmpty()) {
@@ -166,7 +170,7 @@ class StorageManager<Param, Data> {
     public DataPack<Data> getDataPackWithCacheFallback(DataParam<Param> param, IDatasource<Param, Data> datasource, boolean needStore, long quickTimeoutMs, Function<DataPack<Data>, DataPack<Data>> fallbackProcessor) {
         // 1. 捕获子线程引用，用于fallback时精确中断
         Thread[] subThreadRef = new Thread[1];
-        Future<DataPack<Data>> future = DATASOURCE_EXECUTOR.submit(() -> {
+        Future<DataPack<Data>> future = asyncFetchExecutor.submit(() -> {
             subThreadRef[0] = Thread.currentThread();
             return getDataPack(param, datasource, needStore);
         });

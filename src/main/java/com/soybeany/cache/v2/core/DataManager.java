@@ -19,6 +19,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
 
 /**
@@ -131,7 +132,7 @@ public class DataManager<Param, Data> {
         context.logger.onStart();
         DataParam<Param> dataParam = toDataParam(param);
         long datasourceTimeout = storageManager.getDatasourceTimeout(dataParam.paramKey);
-        DataPack<Data> pack = StorageManager.getDataDirectly(this, param, defaultDatasource, datasourceTimeout);
+        DataPack<Data> pack = storageManager.getDataDirectly(this, param, defaultDatasource, datasourceTimeout);
         // 记录日志
         context.logger.onGetData(dataParam, pack, false);
         return pack;
@@ -392,6 +393,16 @@ public class DataManager<Param, Data> {
         @SuppressWarnings("unused")
         public Builder<Param, Data> fetchLock(IKeyLock fetchLock) {
             storageManager.setFetchLock(fetchLock);
+            return this;
+        }
+
+        /**
+         * 配置用于异步获取数据的执行器，默认使用缓存线程池
+         * <br>* 默认线程名："bd-cache-ds"
+         * <br>* 可通过此方法设置包装了MDC上下文传递的自定义执行器
+         */
+        public Builder<Param, Data> asyncFetchExecutor(ExecutorService asyncFetchExecutor) {
+            storageManager.setAsyncFetchExecutor(asyncFetchExecutor);
             return this;
         }
 

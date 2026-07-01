@@ -38,7 +38,7 @@ public interface ILogger {
     /**
      * 获取数据(短超时回退模式)时的回调
      */
-    default <Param, Data> void onGetDataWithCacheFallback(DataParam<Param> param, DataPack<Data> pack, boolean useFallback) {
+    default <Param, Data> void onGetDataWithCacheFallback(DataParam<Param> param, DataPack<Data> pack) {
     }
 
     /**

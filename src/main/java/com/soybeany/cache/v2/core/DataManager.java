@@ -165,13 +165,9 @@ public class DataManager<Param, Data> {
     public DataPack<Data> getDataPackWithCacheFallback(Param param, IDatasource<Param, Data> datasource, long quickTimeoutMs, Function<DataPack<Data>, DataPack<Data>> fallbackProcessor) {
         context.logger.onStart();
         DataParam<Param> dataParam = toDataParam(param);
-        boolean[] useFallback = new boolean[1];
-        DataPack<Data> pack = storageManager.getDataPackWithCacheFallback(dataParam, datasource, true, quickTimeoutMs, p -> {
-            useFallback[0] = true;
-            return fallbackProcessor.apply(p);
-        });
+        DataPack<Data> pack = storageManager.getDataPackWithCacheFallback(dataParam, datasource, true, quickTimeoutMs, fallbackProcessor);
         // 记录日志
-        context.logger.onGetDataWithCacheFallback(dataParam, pack, useFallback[0]);
+        context.logger.onGetDataWithCacheFallback(dataParam, pack);
         return pack;
     }
 

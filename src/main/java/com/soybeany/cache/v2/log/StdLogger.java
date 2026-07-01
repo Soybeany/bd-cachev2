@@ -14,7 +14,7 @@ import java.util.Objects;
 
 /**
  * @author Soybeany
- * @date 2020/12/8
+ * @since 2020/12/8
  */
 public class StdLogger implements ILogger {
 
@@ -32,13 +32,14 @@ public class StdLogger implements ILogger {
 
     @Override
     public <Param> void onGetCache(DataParam<Param> param, DataPack<?> pack) {
-        String from = getFrom(pack.provider, false) + "[" + (pack.pTtl > 0 ? "有效" : "过期") + "]";
+        String valid = "[" + (pack.pTtl > 0 ? "有效" : "过期") + "]";
+        String from = getFrom(pack.provider, false);
         String dataDesc = getDataDesc();
         String paramDesc = getParamDesc(param);
         if (pack.norm()) {
-            mWriter.onWriteInfo("“" + dataDesc + "”从“" + from + "”获取了“" + paramDesc + "”的缓存");
+            mWriter.onWriteInfo("“" + dataDesc + "”从“" + from + "”获取了“" + paramDesc + "”的缓存" + valid);
         } else {
-            mWriter.onWriteWarn("“" + dataDesc + "”从“" + from + "”获取了“" + paramDesc + "”的缓存异常(" + getExceptionMsg(pack) + ")");
+            mWriter.onWriteWarn("“" + dataDesc + "”从“" + from + "”获取了“" + paramDesc + "”的缓存异常(" + getExceptionMsg(pack) + ")" + valid);
         }
     }
 
@@ -55,14 +56,15 @@ public class StdLogger implements ILogger {
     }
 
     @Override
-    public <Param, Data> void onGetDataWithCacheFallback(DataParam<Param> param, DataPack<Data> pack, boolean useFallback) {
-        String from = getFrom(pack.provider, true) + "[" + (useFallback ? "降级" : "有效") + "]";
+    public <Param, Data> void onGetDataWithCacheFallback(DataParam<Param> param, DataPack<Data> pack) {
+        String valid = "[" + (pack.pTtl > 0 ? "有效" : "过期") + "]";
+        String from = getFrom(pack.provider, true);
         String dataDesc = getDataDesc();
         String paramDesc = getParamDesc(param);
         if (pack.norm()) {
-            mWriter.onWriteInfo("“" + dataDesc + "”从“" + from + "”获取了“" + paramDesc + "”的数据");
+            mWriter.onWriteInfo("“" + dataDesc + "”从“" + from + "”获取了“" + paramDesc + "”的数据" + valid);
         } else {
-            mWriter.onWriteInfo("“" + dataDesc + "”从“" + from + "”获取了“" + paramDesc + "”的异常(" + getExceptionMsg(pack) + ")");
+            mWriter.onWriteInfo("“" + dataDesc + "”从“" + from + "”获取了“" + paramDesc + "”的异常(" + getExceptionMsg(pack) + ")" + valid);
         }
     }
 

@@ -115,11 +115,6 @@ public interface ICacheStorage<Param, Data> {
     }
 
     /**
-     * 是否允许在数据源出现异常时，使用上一次已失效的缓存数据，使用异常的生存时间
-     */
-    void enableRenewExpiredCache(boolean enable);
-
-    /**
      * 当前缓存的数据条数
      *
      * @return 数目

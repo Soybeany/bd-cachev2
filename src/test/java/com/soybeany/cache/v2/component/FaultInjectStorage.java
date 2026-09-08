@@ -99,11 +99,6 @@ public class FaultInjectStorage<Param, Data> implements ICacheStorage<Param, Dat
     }
 
     @Override
-    public void enableRenewExpiredCache(boolean enable) {
-        delegate.enableRenewExpiredCache(enable);
-    }
-
-    @Override
     public int cachedDataCount() {
         return delegate.cachedDataCount();
     }

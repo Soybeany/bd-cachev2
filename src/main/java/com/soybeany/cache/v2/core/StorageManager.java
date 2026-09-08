@@ -2,11 +2,7 @@ package com.soybeany.cache.v2.core;
 
 import com.soybeany.cache.v2.contract.frame.ICacheStorage;
 import com.soybeany.cache.v2.contract.frame.IKeyLock;
-import com.soybeany.cache.v2.contract.user.ICacheChecker;
-import com.soybeany.cache.v2.contract.user.ICacheMissHandler;
-import com.soybeany.cache.v2.contract.user.IDataFetcher;
-import com.soybeany.cache.v2.contract.user.IDatasource;
-import com.soybeany.cache.v2.contract.user.IOnInvalidListener;
+import com.soybeany.cache.v2.contract.user.*;
 import com.soybeany.cache.v2.exception.CacheWaitException;
 import com.soybeany.cache.v2.exception.NoCacheException;
 import com.soybeany.cache.v2.exception.NoDataSourceException;
@@ -31,12 +27,12 @@ class StorageManager<Param, Data> {
         return t;
     });
 
+    private final ICacheMissHandler<Param, Data> defaultCacheMissHandler = (param, invalidCore, fetcher) -> fetcher.getData();
     private final LinkedList<ICacheStorage<Param, Data>> storages = new LinkedList<>();
     private final Set<IOnInvalidListener<Param>> onInvalidListeners = new HashSet<>();
 
     private DataContext context;
     private ICheckHolder<Param, Data> checkerHolder = (param, supplier) -> supplier.get();
-    private boolean enableRenewExpiredCache;
     private IKeyLock fetchLock = new StdKeyLock("fetch", k -> 30 * 1000L);
     private Function<String, Long> datasourceTimeoutSupplier;
 
@@ -45,7 +41,7 @@ class StorageManager<Param, Data> {
     /**
      * 缓存未命中处理器，默认直接访问数据源
      */
-    private ICacheMissHandler<Param, Data> cacheMissHandler = (param, invalidCore, fetcher) -> fetcher.getData();
+    private ICacheMissHandler<Param, Data> cacheMissHandler = defaultCacheMissHandler;
 
     public DataPack<Data> getDataDirectly(Object noDatasourceInvoker, Param param, IDatasource<Param, Data> datasource, Long timeoutMs) {
         // 没有指定数据源
@@ -139,14 +135,6 @@ class StorageManager<Param, Data> {
         return storages;
     }
 
-    public boolean enableRenewExpiredCache() {
-        return enableRenewExpiredCache;
-    }
-
-    public void enableRenewExpiredCache(boolean enableRenewExpiredCache) {
-        this.enableRenewExpiredCache = enableRenewExpiredCache;
-    }
-
     public void setAsyncDatasourceConfig(Function<String, Long> supplier) {
         this.datasourceTimeoutSupplier = supplier;
     }
@@ -160,9 +148,7 @@ class StorageManager<Param, Data> {
     }
 
     public void setCacheMissHandler(ICacheMissHandler<Param, Data> handler) {
-        if (null != handler) {
-            this.cacheMissHandler = handler;
-        }
+        this.cacheMissHandler = Optional.ofNullable(handler).orElse(defaultCacheMissHandler);
     }
 
     public void setAsyncFetchExecutor(Function<ExecutorService, ExecutorService> executorSupplier) {
@@ -174,7 +160,6 @@ class StorageManager<Param, Data> {
         if (storages.isEmpty()) {
             return;
         }
-        storages.getLast().enableRenewExpiredCache(enableRenewExpiredCache);
         storages.forEach(storage -> storage.onInit(context));
     }
 
@@ -317,15 +302,11 @@ class StorageManager<Param, Data> {
                     }
                 }
                 List<DataPack<Data>> dataPackHolder = new ArrayList<>();
-                // 没有数据源时，不经过未命中处理器
-                if (null == datasource) {
-                    return new DataPack<>(DataCore.fromException(new NoDataSourceException()), this, Long.MAX_VALUE);
-                }
                 // 收集第一个已过期的旧数据，供未命中处理器参考
                 DataCore<Data> invalidCore = onGetInvalidCore(param);
-                // 数据获取器，封装了数据源访问逻辑(含异步/超时/异常包装)
+                // 数据获取器，封装了数据源访问逻辑(含异步/超时/异常包装)，数据源为null时返回NoDataSourceException包
                 IDataFetcher<Data> fetcher = () -> getDataDirectly(this, param.value, datasource, getDatasourceTimeout(param.paramKey));
-                dataPackHolder.add(cacheMissHandler.onInvoke(param.value, invalidCore, fetcher));
+                dataPackHolder.add(cacheMissHandler.onInvoke(param, invalidCore, fetcher));
                 // 在fetch锁内回写所有缓存层，释放锁后其他线程可直接读到
                 if (needStore) {
                     for (int i = storages.size() - 1; i >= 0; i--) {

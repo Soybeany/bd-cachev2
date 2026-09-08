@@ -2,6 +2,7 @@ package com.soybeany.cache.v2.contract.user;
 
 import com.soybeany.cache.v2.model.DataCore;
 import com.soybeany.cache.v2.model.DataPack;
+import com.soybeany.cache.v2.model.DataParam;
 
 /**
  * 缓存未命中(全部缓存均失效)时的处理器，用于自定义回源取数逻辑
@@ -19,6 +20,6 @@ public interface ICacheMissHandler<Param, Data> {
      * @param fetcher     数据获取器，封装了数据源访问逻辑
      * @return 取得的数据包
      */
-    DataPack<Data> onInvoke(Param param, DataCore<Data> invalidCore, IDataFetcher<Data> fetcher);
+    DataPack<Data> onInvoke(DataParam<Param> param, DataCore<Data> invalidCore, IDataFetcher<Data> fetcher);
 
 }

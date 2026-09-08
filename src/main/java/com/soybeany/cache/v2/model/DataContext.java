@@ -11,5 +11,7 @@ public class DataContext {
         this.dataDesc = dataDesc;
         this.storageId = storageId;
         this.logger = logger;
+
+        logger.onInit(this);
     }
 }

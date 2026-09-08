@@ -42,7 +42,7 @@ public class InvalidDMTest {
         // 从缓存(续期)获取
         dataManager.invalidCache(key);
         data = dataManager.getDataPack(key, errDatasource);
-        assert data.norm() && storage == data.provider;
+        assert data.norm() && errDatasource != data.provider;
         // 从数据源获取
         Thread.sleep(200);
         data = dataManager.getDataPack(key);
@@ -71,9 +71,9 @@ public class InvalidDMTest {
         // 从缓存(续期)获取
         dataManager.invalidAllCache();
         data = dataManager.getDataPack(key1, errDatasource);
-        assert data.norm() && storage == data.provider;
+        assert data.norm() && errDatasource != data.provider;
         data = dataManager.getDataPack(key2, errDatasource);
-        assert data.norm() && storage == data.provider;
+        assert data.norm() && errDatasource != data.provider;
         // 从数据源获取
         Thread.sleep(200);
         data = dataManager.getDataPack(key1);

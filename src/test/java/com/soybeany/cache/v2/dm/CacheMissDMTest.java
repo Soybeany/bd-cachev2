@@ -101,21 +101,21 @@ public class CacheMissDMTest {
     }
 
     @Test
-    public void 无数据源时不经过处理器() {
+    public void 无数据源时处理器收到异常数据包() {
         AtomicInteger invokeCount = new AtomicInteger();
         ICacheStorage<String, String> storage = new LruMemCacheStorage.Builder<String, String>()
                 .pTtl(60_000).build();
         DataManager<String, String> dataManager = DataManager.Builder
-                .get("无数据源短路", (IDatasource<String, String>) null)
+                .get("无数据源回源", (IDatasource<String, String>) null)
                 .withCache(storage)
                 .cacheMissHandler((param, invalidCore, fetcher) -> {
                     invokeCount.incrementAndGet();
                     return fetcher.getData();
                 })
                 .build();
-        // 无缓存且无数据源，containCache应直接判定不存在，不回调处理器
+        // 无数据源时，处理器仍会被调用，fetcher返回包含NoDataSourceException的数据包
         assert !dataManager.containCache("nope");
-        assert 0 == invokeCount.get();
+        assert 1 == invokeCount.get();
     }
 
 }

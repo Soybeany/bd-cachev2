@@ -14,6 +14,7 @@ import java.lang.reflect.Type;
 import java.util.*;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 
 /**
@@ -27,8 +28,8 @@ public class LruMemCacheStorage<Param, Data> extends StdStorage<Param, Data> {
     private final Type deppCopyType;
     private final MapStorage<Data> mapStorage;
 
-    private LruMemCacheStorage(long pTtl, long pTtlErr, Type deppCopyType, MapStorage<Data> storage) {
-        super(pTtl, pTtlErr);
+    private LruMemCacheStorage(BiFunction<Param, DataCore<Data>, Long> ttlFunction, Type deppCopyType, MapStorage<Data> storage) {
+        super(ttlFunction);
         this.deppCopyType = deppCopyType;
         mapStorage = storage;
     }
@@ -170,7 +171,7 @@ public class LruMemCacheStorage<Param, Data> extends StdStorage<Param, Data> {
         @Override
         protected ICacheStorage<Param, Data> onBuild() {
             RefImpl<Data> storage = weakRef ? new RefImpl<>(capacity, WeakReference::new) : new RefImpl<>(capacity, SoftReference::new);
-            return new LruMemCacheStorage<>(pTtl, pTtlErr, deppCopyType, storage);
+            return new LruMemCacheStorage<>(ttlFunction(), deppCopyType, storage);
         }
 
         @Override

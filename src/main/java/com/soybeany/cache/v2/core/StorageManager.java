@@ -49,9 +49,9 @@ class StorageManager<Param, Data> {
         if (null == timeoutMs) {
             try {
                 Data data = datasource.onGetData(param);
-                return new DataPack<>(DataCore.fromData(data), datasource, datasource.onSetupExpiry(param, data));
+                return new DataPack<>(DataCore.fromData(data), datasource, Long.MAX_VALUE);
             } catch (RuntimeException e) {
-                return new DataPack<>(DataCore.fromException(e), datasource, datasource.onSetupExpiry(param, e));
+                return new DataPack<>(DataCore.fromException(e), datasource, Long.MAX_VALUE);
             }
         }
         // 异步执行+超时
@@ -73,9 +73,9 @@ class StorageManager<Param, Data> {
                 }
                 throw new RuntimeException(cause);
             }
-            return new DataPack<>(DataCore.fromData(data), datasource, datasource.onSetupExpiry(param, data));
+            return new DataPack<>(DataCore.fromData(data), datasource, Long.MAX_VALUE);
         } catch (RuntimeException e) {
-            return new DataPack<>(DataCore.fromException(e), datasource, datasource.onSetupExpiry(param, e));
+            return new DataPack<>(DataCore.fromException(e), datasource, Long.MAX_VALUE);
         }
     }
 

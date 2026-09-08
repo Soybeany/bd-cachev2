@@ -21,8 +21,11 @@ public class CacheEntity<Data> {
      */
     public long pNextCheckAt;
 
-    public static <Data> CacheEntity<Data> fromDataPack(DataPack<Data> dataPack, long curTimestamp, long pTtlMaxNorm, long pTtlMaxErr) {
-        long pTtlMax = dataPack.dataCore.norm ? pTtlMaxNorm : pTtlMaxErr;
+    /**
+     * @param pTtlMax 该级缓存允许的最大生存时间(时间段)
+     */
+    public static <Data> CacheEntity<Data> fromDataPack(DataPack<Data> dataPack, long curTimestamp, long pTtlMax) {
+        // 实际使用min(缓存配置值，数据/异常剩余有效期)
         long pTtl = Math.min(dataPack.pTtl, pTtlMax);
         return new CacheEntity<>(dataPack.dataCore, curTimestamp + pTtl);
     }

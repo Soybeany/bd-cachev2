@@ -2,11 +2,16 @@ package com.soybeany.cache.v2.storage;
 
 import com.soybeany.cache.v2.contract.frame.ICacheStorage;
 import com.soybeany.cache.v2.contract.user.IKeyConverter;
+import com.soybeany.cache.v2.exception.BdCacheException;
 import com.soybeany.cache.v2.exception.NoCacheException;
 import com.soybeany.cache.v2.model.CacheEntity;
 import com.soybeany.cache.v2.model.DataContext;
+import com.soybeany.cache.v2.model.DataCore;
 import com.soybeany.cache.v2.model.DataPack;
 import com.soybeany.cache.v2.model.DataParam;
+
+import java.util.Optional;
+import java.util.function.BiFunction;
 
 /**
  * @author Soybeany
@@ -15,15 +20,22 @@ import com.soybeany.cache.v2.model.DataParam;
 public abstract class StdStorage<Param, Data> implements ICacheStorage<Param, Data> {
 
     private final IKeyConverter<String> storageKeyConverter = onSetupStorageKeyConverter();
-    protected final long pTtl;
-    protected final long pTtlErr;
+
+    /**
+     * 有效期函数，入参为缓存的数据核心，返回该数据/异常在该级缓存中的有效期(单位：毫秒)
+     */
+    private final BiFunction<Param, DataCore<Data>, Long> ttlFunction;
 
     protected DataContext context;
     private boolean enableRenewExpiredCache;
 
     public StdStorage(long pTtl, long pTtlErr) {
-        this.pTtl = pTtl;
-        this.pTtlErr = pTtlErr;
+        this((param, dataCore) -> dataCore.norm ? pTtl : pTtlErr);
+    }
+
+    public StdStorage(BiFunction<Param, DataCore<Data>, Long> ttlFunction) {
+        this.ttlFunction = Optional.ofNullable(ttlFunction)
+                .orElseThrow(() -> new BdCacheException("ttlFunction不能为null"));
     }
 
     @Override
@@ -69,8 +81,8 @@ public abstract class StdStorage<Param, Data> implements ICacheStorage<Param, Da
             if (!cacheEntity.dataCore.norm) {
                 throw new NoCacheException();
             }
-            // 重新持久化一个使用新过期时间的info
-            CacheEntity<Data> newCacheEntity = new CacheEntity<>(cacheEntity.dataCore, curTimestamp + pTtlErr);
+            // 重新持久化一个使用新过期时间的info（续期使用异常的有效期，与原pTtlErr语义一致）
+            CacheEntity<Data> newCacheEntity = new CacheEntity<>(cacheEntity.dataCore, curTimestamp + onGetTtl(param, dataPack.dataCore));
             onSaveCacheEntity(param, key, newCacheEntity);
             if (null != context.logger) {
                 context.logger.onRenewExpiredCache(param, this);
@@ -133,8 +145,19 @@ public abstract class StdStorage<Param, Data> implements ICacheStorage<Param, Da
 
     // ***********************内部方法****************************
 
+    /**
+     * 获得指定数据/异常在该级缓存中的有效期(单位：毫秒)
+     */
+    protected long onGetTtl(DataParam<Param> param, DataCore<Data> dataCore) {
+        Long ttl = ttlFunction.apply(param.value, dataCore);
+        if (null == ttl || ttl < 0) {
+            throw new BdCacheException("ttlFunction返回了无效的值:" + ttl);
+        }
+        return ttl;
+    }
+
     private DataPack<Data> simpleCacheData(DataParam<Param> param, String storageKey, DataPack<Data> dataPack) {
-        CacheEntity<Data> cacheEntity = CacheEntity.fromDataPack(dataPack, onGetCurTimestamp(), pTtl, pTtlErr);
+        CacheEntity<Data> cacheEntity = CacheEntity.fromDataPack(dataPack, onGetCurTimestamp(), onGetTtl(param, dataPack.dataCore));
         CacheEntity<Data> newCacheEntity = onSaveCacheEntity(param, storageKey, cacheEntity);
         return onRewriteCacheData(cacheEntity, newCacheEntity, dataPack);
     }

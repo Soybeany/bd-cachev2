@@ -1,6 +1,9 @@
 package com.soybeany.cache.v2.storage;
 
 import com.soybeany.cache.v2.contract.frame.ICacheStorage;
+import com.soybeany.cache.v2.model.DataCore;
+
+import java.util.function.BiFunction;
 
 /**
  * @author Soybeany
@@ -28,9 +31,18 @@ public abstract class StdStorageBuilder<Param, Data> {
      */
     protected long pTtlErr;
 
+    /**
+     * 有效期函数，入参为缓存的数据核心，返回该数据/异常在该级缓存中的有效期(单位：毫秒)
+     * <br>* 设置后，{@link #ttl}/{@link #ttlErr}/{@link #pTtl}/{@link #pTtlErr}不再生效
+     * <br>* 正常与异常的区分需自行通过{@link DataCore#norm}判断
+     */
+    private BiFunction<Param, DataCore<Data>, Long> ttlFunction;
+
     public ICacheStorage<Param, Data> build() {
         // 预处理时间
         handleTtl();
+        // 解析有效期函数
+        resolveTtlFunction();
         // 构建
         return onBuild();
     }
@@ -55,11 +67,37 @@ public abstract class StdStorageBuilder<Param, Data> {
         return this;
     }
 
+    /**
+     * 设置有效期函数，入参为缓存的数据核心，返回该数据/异常在该级缓存中的有效期(单位：毫秒)
+     * <br>* 设置后，{@link #ttl}/{@link #ttlErr}/{@link #pTtl}/{@link #pTtlErr}不再生效
+     * <br>* 正常与异常的区分需自行通过{@link DataCore#norm}判断
+     *
+     * @param ttlFunction 返回null或负数视为无效配置，会抛出{@link com.soybeany.cache.v2.exception.BdCacheException}
+     */
+    public StdStorageBuilder<Param, Data> ttl(BiFunction<Param, DataCore<Data>, Long> ttlFunction) {
+        this.ttlFunction = ttlFunction;
+        return this;
+    }
+
     // ***********************子类重新****************************
+
+    /**
+     * 获得解析后的有效期函数，子类构建存储器时使用
+     */
+    protected BiFunction<Param, DataCore<Data>, Long> ttlFunction() {
+        return ttlFunction;
+    }
 
     protected abstract ICacheStorage<Param, Data> onBuild();
 
     // ***********************内部方法****************************
+
+    private void resolveTtlFunction() {
+        // 未配置有效期函数时，使用固定有效期生成默认实现
+        if (null == ttlFunction) {
+            ttlFunction = (param, dataCore) -> dataCore.norm ? pTtl : pTtlErr;
+        }
+    }
 
     private void handleTtl() {
         // 整合

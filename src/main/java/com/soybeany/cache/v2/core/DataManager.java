@@ -5,6 +5,7 @@ import com.soybeany.cache.v2.contract.frame.ICacheStorage;
 import com.soybeany.cache.v2.contract.frame.IKeyLock;
 import com.soybeany.cache.v2.contract.frame.ILogger;
 import com.soybeany.cache.v2.contract.user.ICacheChecker;
+import com.soybeany.cache.v2.contract.user.ICacheMissHandler;
 import com.soybeany.cache.v2.contract.user.IDatasource;
 import com.soybeany.cache.v2.contract.user.IKeyConverter;
 import com.soybeany.cache.v2.contract.user.IOnInvalidListener;
@@ -374,6 +375,16 @@ public class DataManager<Param, Data> {
          */
         public Builder<Param, Data> enableRenewExpiredCache(boolean flag) {
             storageManager.enableRenewExpiredCache(flag);
+            return this;
+        }
+
+        /**
+         * 配置缓存未命中(全部缓存均失效)时的处理器，用于自定义回源取数逻辑
+         * <br>* 默认实现为访问数据源，即调用{@link IDatasource#onGetData}
+         * <br>* 传入null时重置为默认实现
+         */
+        public Builder<Param, Data> cacheMissHandler(ICacheMissHandler<Param, Data> handler) {
+            storageManager.setCacheMissHandler(handler);
             return this;
         }
 

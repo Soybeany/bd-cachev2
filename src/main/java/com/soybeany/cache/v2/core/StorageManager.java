@@ -3,6 +3,8 @@ package com.soybeany.cache.v2.core;
 import com.soybeany.cache.v2.contract.frame.ICacheStorage;
 import com.soybeany.cache.v2.contract.frame.IKeyLock;
 import com.soybeany.cache.v2.contract.user.ICacheChecker;
+import com.soybeany.cache.v2.contract.user.ICacheMissHandler;
+import com.soybeany.cache.v2.contract.user.IDataFetcher;
 import com.soybeany.cache.v2.contract.user.IDatasource;
 import com.soybeany.cache.v2.contract.user.IOnInvalidListener;
 import com.soybeany.cache.v2.exception.CacheWaitException;
@@ -39,6 +41,11 @@ class StorageManager<Param, Data> {
     private Function<String, Long> datasourceTimeoutSupplier;
 
     private ExecutorService asyncFetchExecutor = DEFAULT_ASYNC_FETCH_EXECUTOR;
+
+    /**
+     * 缓存未命中处理器，默认直接访问数据源
+     */
+    private ICacheMissHandler<Param, Data> cacheMissHandler = (param, invalidCore, fetcher) -> fetcher.getData();
 
     public DataPack<Data> getDataDirectly(Object noDatasourceInvoker, Param param, IDatasource<Param, Data> datasource, Long timeoutMs) {
         // 没有指定数据源
@@ -150,6 +157,12 @@ class StorageManager<Param, Data> {
 
     public void setFetchLock(IKeyLock fetchLock) {
         this.fetchLock = fetchLock;
+    }
+
+    public void setCacheMissHandler(ICacheMissHandler<Param, Data> handler) {
+        if (null != handler) {
+            this.cacheMissHandler = handler;
+        }
     }
 
     public void setAsyncFetchExecutor(Function<ExecutorService, ExecutorService> executorSupplier) {
@@ -304,7 +317,15 @@ class StorageManager<Param, Data> {
                     }
                 }
                 List<DataPack<Data>> dataPackHolder = new ArrayList<>();
-                dataPackHolder.add(getDataDirectly(this, param.value, datasource, getDatasourceTimeout(param.paramKey)));
+                // 没有数据源时，不经过未命中处理器
+                if (null == datasource) {
+                    return new DataPack<>(DataCore.fromException(new NoDataSourceException()), this, Long.MAX_VALUE);
+                }
+                // 收集第一个已过期的旧数据，供未命中处理器参考
+                DataCore<Data> invalidCore = onGetInvalidCore(param);
+                // 数据获取器，封装了数据源访问逻辑(含异步/超时/异常包装)
+                IDataFetcher<Data> fetcher = () -> getDataDirectly(this, param.value, datasource, getDatasourceTimeout(param.paramKey));
+                dataPackHolder.add(cacheMissHandler.onInvoke(param.value, invalidCore, fetcher));
                 // 在fetch锁内回写所有缓存层，释放锁后其他线程可直接读到
                 if (needStore) {
                     for (int i = storages.size() - 1; i >= 0; i--) {
@@ -376,6 +397,23 @@ class StorageManager<Param, Data> {
 
     private boolean isFromDatasource(DataPack<Data> dataPack) {
         return dataPack.provider instanceof IDatasource;
+    }
+
+    /**
+     * 收集第一个已过期的旧数据
+     */
+    private DataCore<Data> onGetInvalidCore(DataParam<Param> param) {
+        for (ICacheStorage<Param, Data> storage : storages) {
+            try {
+                DataPack<Data> pack = storage.onGetCacheIgnoreExpiry(param);
+                // pTtl不大于0，说明已过期
+                if (pack.pTtl <= 0) {
+                    return pack.dataCore;
+                }
+            } catch (NoCacheException ignored) {
+            }
+        }
+        return null;
     }
 
     // ****************************************内部类****************************************

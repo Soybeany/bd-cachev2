@@ -43,6 +43,11 @@ class StorageManager<Param, Data> {
      */
     private ICacheMissHandler<Param, Data> cacheMissHandler = defaultCacheMissHandler;
 
+    /**
+     * 是否允许在回源结果为异常时，临时激活上一次已失效的缓存数据
+     */
+    private boolean enableRenewExpiredCache;
+
     public DataPack<Data> getDataDirectly(Object noDatasourceInvoker, Param param, IDatasource<Param, Data> datasource, Long timeoutMs) {
         // 没有指定数据源
         if (null == datasource) {
@@ -151,12 +156,24 @@ class StorageManager<Param, Data> {
         this.cacheMissHandler = Optional.ofNullable(handler).orElse(defaultCacheMissHandler);
     }
 
+    public void enableRenewExpiredCache(boolean flag) {
+        this.enableRenewExpiredCache = flag;
+    }
+
+    public boolean enableRenewExpiredCache() {
+        return enableRenewExpiredCache;
+    }
+
     public void setAsyncFetchExecutor(Function<ExecutorService, ExecutorService> executorSupplier) {
         this.asyncFetchExecutor = executorSupplier.apply(DEFAULT_ASYNC_FETCH_EXECUTOR);
     }
 
     public void init(DataContext context) {
         this.context = context;
+        // 需要续期时，为处理器装配续期装饰器
+        if (enableRenewExpiredCache) {
+            cacheMissHandler = renewWrapper(cacheMissHandler);
+        }
         if (storages.isEmpty()) {
             return;
         }
@@ -395,6 +412,24 @@ class StorageManager<Param, Data> {
             }
         }
         return null;
+    }
+
+    /**
+     * 为缓存未命中处理器装配续期装饰器
+     * <br>回源结果为异常且存在旧的正常数据时，临时激活旧数据，有效期由各级缓存的正常数据有效期配置决定
+     */
+    private ICacheMissHandler<Param, Data> renewWrapper(ICacheMissHandler<Param, Data> cacheMissHandler) {
+        return (param, invalidCore, fetcher) -> {
+            // 先尝试获取新数据(异常会按常规缓存，防穿透)
+            DataPack<Data> newDataPack = cacheMissHandler.onInvoke(param, invalidCore, fetcher);
+            // 新数据正常，或无可续期的旧正常数据时，直接返回
+            if (newDataPack.norm() || null == invalidCore || !invalidCore.norm) {
+                return newDataPack;
+            }
+            context.logger.onRenewExpiredCache(param, this);
+            // 为旧数据续期一次
+            return new DataPack<>(invalidCore, this, Long.MAX_VALUE);
+        };
     }
 
     // ****************************************内部类****************************************

@@ -34,7 +34,6 @@ public class DataManager<Param, Data> {
     private final StorageManager<Param, Data> storageManager;
     private final IKeyConverter<Param> paramDescConverter;
     private final IKeyConverter<Param> paramKeyConverter;
-    private final boolean enableRenewExpiredCache;
 
     // ***********************管理****************************
 
@@ -42,17 +41,12 @@ public class DataManager<Param, Data> {
                         IDatasource<Param, Data> defaultDatasource,
                         StorageManager<Param, Data> storageManager,
                         IKeyConverter<Param> paramDescConverter,
-                        IKeyConverter<Param> paramKeyConverter,
-                        ICacheMissHandler<Param, Data> cacheMissHandler,
-                        boolean enableRenewExpiredCache) {
+                        IKeyConverter<Param> paramKeyConverter) {
         this.context = context;
         this.defaultDatasource = defaultDatasource;
         this.storageManager = storageManager;
         this.paramDescConverter = paramDescConverter;
         this.paramKeyConverter = paramKeyConverter;
-        this.enableRenewExpiredCache = enableRenewExpiredCache;
-
-        onInit(cacheMissHandler);
     }
 
     public DataContext dataContext() {
@@ -68,7 +62,7 @@ public class DataManager<Param, Data> {
     }
 
     public boolean enableRenewExpiredCache() {
-        return enableRenewExpiredCache;
+        return storageManager.enableRenewExpiredCache();
     }
 
     // ********************操作********************
@@ -316,32 +310,6 @@ public class DataManager<Param, Data> {
         return result;
     }
 
-    private void onInit(ICacheMissHandler<Param, Data> cacheMissHandler) {
-        storageManager.init(context);
-        // 未配置处理器时，使用默认的回源实现(访问数据源)
-        ICacheMissHandler<Param, Data> handler = cacheMissHandler;
-        // 需要续期时，为处理器装配续期装饰器
-        if (enableRenewExpiredCache) {
-            handler = (param, invalidCore, fetcher) -> {
-                // 先尝试获取新数据
-                DataPack<Data> newDataPack;
-                if (null != cacheMissHandler) {
-                    newDataPack = cacheMissHandler.onInvoke(param, invalidCore, fetcher);
-                } else {
-                    newDataPack = fetcher.getData();
-                }
-                // 新数据正常，或无可续期的旧正常数据时，直接返回(异常会按常规缓存，防穿透)
-                if (newDataPack.norm() || null == invalidCore || !invalidCore.norm) {
-                    return newDataPack;
-                }
-                context.logger.onRenewExpiredCache(param, this);
-                // 为旧数据续期一次
-                return new DataPack<>(invalidCore, this, Long.MAX_VALUE);
-            };
-        }
-        storageManager.setCacheMissHandler(handler);
-    }
-
     // ********************内部类********************
 
     public static class Builder<Param, Data> {
@@ -356,6 +324,11 @@ public class DataManager<Param, Data> {
         private IKeyConverter<Param> paramDescConverter;
 
         private ILogger logger = ILogger.SKIP;
+
+        /**
+         * 是否已构建(仅允许构建一次，避免storageManager内部状态累积)
+         */
+        private boolean built;
 
         public static <Data> Builder<String, Data> get(String dataDesc, IDatasource<String, Data> datasource) {
             return new Builder<>(dataDesc, datasource, new IKeyConverter.Std());
@@ -404,19 +377,16 @@ public class DataManager<Param, Data> {
          * <br>* 续期数据的有效期由各级缓存的正常数据有效期配置决定
          */
         public Builder<Param, Data> enableRenewExpiredCache(boolean flag) {
-            enableRenewExpiredCache = flag;
+            storageManager.enableRenewExpiredCache(flag);
             return this;
         }
-
-        private boolean enableRenewExpiredCache;
-        private ICacheMissHandler<Param, Data> cacheMissHandler;
 
         /**
          * 配置缓存未命中(全部缓存均失效)时的处理器，用于自定义回源取数逻辑
          * <br>* 不配置时使用默认回源实现，即调用{@link IDatasource#onGetData}
          */
         public Builder<Param, Data> cacheMissHandler(ICacheMissHandler<Param, Data> handler) {
-            cacheMissHandler = handler;
+            storageManager.setCacheMissHandler(handler);
             return this;
         }
 
@@ -488,9 +458,16 @@ public class DataManager<Param, Data> {
          * 构建出用于使用的实例
          */
         public DataManager<Param, Data> build() {
+            // 仅支持构建一次(重复构建会使storageManager的续期装饰器重复装配、context/onInit回调重复执行)
+            if (built) {
+                throw new BdCacheException("builder仅支持构建一次");
+            }
+            built = true;
             DataContext context = new DataContext(dataDesc, Optional.ofNullable(this.storageId).orElse(dataDesc), logger);
+            // 初始化storageManager
+            storageManager.init(context);
             // 创建管理器实例
-            return new DataManager<>(context, defaultDatasource, storageManager, paramDescConverter, paramKeyConverter, cacheMissHandler, enableRenewExpiredCache);
+            return new DataManager<>(context, defaultDatasource, storageManager, paramDescConverter, paramKeyConverter);
         }
     }
 }

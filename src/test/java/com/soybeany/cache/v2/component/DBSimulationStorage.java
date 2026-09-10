@@ -4,6 +4,7 @@ import com.soybeany.cache.v2.exception.NoCacheException;
 import com.soybeany.cache.v2.model.CacheEntity;
 import com.soybeany.cache.v2.model.DataParam;
 import com.soybeany.cache.v2.storage.StdStorage;
+import com.soybeany.cache.v2.storage.StdStorageBuilder;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -19,7 +20,7 @@ public class DBSimulationStorage<Param, Data> extends StdStorage<Param, Data> {
     }
 
     public DBSimulationStorage(int pTtl) {
-        super(pTtl, pTtl);
+        super(StdStorageBuilder.pTtlToPTtlFunction(pTtl, pTtl));
     }
 
     @Override

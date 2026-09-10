@@ -20,17 +20,13 @@ public abstract class StdStorage<Param, Data> implements ICacheStorage<Param, Da
     /**
      * 有效期函数，入参为缓存的数据核心，返回该数据/异常在该级缓存中的有效期(单位：毫秒)
      */
-    private final BiFunction<Param, DataCore<Data>, Long> ttlFunction;
+    private final BiFunction<Param, DataCore<Data>, Long> pTtlFunction;
 
     protected DataContext context;
 
-    public StdStorage(long pTtl, long pTtlErr) {
-        this((param, dataCore) -> dataCore.norm ? pTtl : pTtlErr);
-    }
-
-    public StdStorage(BiFunction<Param, DataCore<Data>, Long> ttlFunction) {
-        this.ttlFunction = Optional.ofNullable(ttlFunction)
-                .orElseThrow(() -> new BdCacheException("ttlFunction不能为null"));
+    public StdStorage(BiFunction<Param, DataCore<Data>, Long> pTtlFunction) {
+        this.pTtlFunction = Optional.ofNullable(pTtlFunction)
+                .orElseThrow(() -> new BdCacheException("pTtlFunction不能为null"));
     }
 
     @Override
@@ -60,7 +56,7 @@ public abstract class StdStorage<Param, Data> implements ICacheStorage<Param, Da
 
     @Override
     public DataPack<Data> onCacheData(DataParam<Param> param, DataPack<Data> dataPack) {
-        CacheEntity<Data> cacheEntity = CacheEntity.fromDataPack(dataPack, onGetCurTimestamp(), onGetTtl(param, dataPack.dataCore));
+        CacheEntity<Data> cacheEntity = CacheEntity.fromDataPack(dataPack, onGetCurTimestamp(), onGetPTtl(param, dataPack.dataCore));
         CacheEntity<Data> newCacheEntity = onSaveCacheEntity(param, getStorageKey(param), cacheEntity);
         return onRewriteCacheData(cacheEntity, newCacheEntity, dataPack);
     }
@@ -114,12 +110,12 @@ public abstract class StdStorage<Param, Data> implements ICacheStorage<Param, Da
     /**
      * 获得指定数据/异常在该级缓存中的有效期(单位：毫秒)
      */
-    protected long onGetTtl(DataParam<Param> param, DataCore<Data> dataCore) {
-        Long ttl = ttlFunction.apply(param.value, dataCore);
-        if (null == ttl || ttl < 0) {
-            throw new BdCacheException("ttlFunction返回了无效的值:" + ttl);
+    protected long onGetPTtl(DataParam<Param> param, DataCore<Data> dataCore) {
+        Long pTtl = pTtlFunction.apply(param.value, dataCore);
+        if (null == pTtl || pTtl < 0) {
+            throw new BdCacheException("pTtlFunction返回了无效的值:" + pTtl);
         }
-        return ttl;
+        return pTtl;
     }
 
 }

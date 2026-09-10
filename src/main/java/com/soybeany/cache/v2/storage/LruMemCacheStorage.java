@@ -28,8 +28,8 @@ public class LruMemCacheStorage<Param, Data> extends StdStorage<Param, Data> {
     private final Type deppCopyType;
     private final MapStorage<Data> mapStorage;
 
-    private LruMemCacheStorage(BiFunction<Param, DataCore<Data>, Long> ttlFunction, Type deppCopyType, MapStorage<Data> storage) {
-        super(ttlFunction);
+    private LruMemCacheStorage(BiFunction<Param, DataCore<Data>, Long> pTtlFunction, Type deppCopyType, MapStorage<Data> storage) {
+        super(pTtlFunction);
         this.deppCopyType = deppCopyType;
         mapStorage = storage;
     }
@@ -171,7 +171,7 @@ public class LruMemCacheStorage<Param, Data> extends StdStorage<Param, Data> {
         @Override
         protected ICacheStorage<Param, Data> onBuild() {
             RefImpl<Data> storage = weakRef ? new RefImpl<>(capacity, WeakReference::new) : new RefImpl<>(capacity, SoftReference::new);
-            return new LruMemCacheStorage<>(ttlFunction(), deppCopyType, storage);
+            return new LruMemCacheStorage<>(pTtlFunction(), deppCopyType, storage);
         }
 
         @Override

@@ -11,7 +11,7 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * 测试各级缓存的有效期函数配置({@link com.soybeany.cache.v2.storage.StdStorageBuilder#ttl})
+ * 测试各级缓存的有效期函数配置({@link com.soybeany.cache.v2.storage.StdStorageBuilder#pTtl(java.util.function.BiFunction)})
  * <br>某级缓存实际使用的有效期为min(该级ttl函数返回值，数据/异常剩余有效期)，同时适用于数据源与手动缓存场景
  */
 public class DataExpiryDMTest {
@@ -28,7 +28,7 @@ public class DataExpiryDMTest {
     @Test
     public void ttl函数设置的有效期生效() throws Exception {
         ICacheStorage<String, String> storage = new LruMemCacheStorage.Builder<String, String>()
-                .ttl((p, core) -> 500L).build();
+                .pTtl((p, core) -> 500L).build();
         DataManager<String, String> dataManager = DataManager.Builder
                 .get("ttl函数有效期", datasource)
                 .withCache(storage)
@@ -54,7 +54,7 @@ public class DataExpiryDMTest {
             return "data_" + s;
         };
         ICacheStorage<String, String> storage = new LruMemCacheStorage.Builder<String, String>()
-                .ttl((p, core) -> core.norm ? 60_000L : 400L).build();
+                .pTtl((p, core) -> core.norm ? 60_000L : 400L).build();
         DataManager<String, String> dataManager = DataManager.Builder
                 .get("ttl函数norm分支", failOnceDatasource)
                 .withCache(storage)
@@ -74,7 +74,7 @@ public class DataExpiryDMTest {
     @Test
     public void 手动缓存遵循ttl函数的有效期() throws Exception {
         ICacheStorage<String, String> storage = new LruMemCacheStorage.Builder<String, String>()
-                .ttl((p, core) -> 400L).build();
+                .pTtl((p, core) -> 400L).build();
         DataManager<String, String> dataManager = DataManager.Builder
                 .get("手动缓存ttl函数", datasource)
                 .withCache(storage)
@@ -118,7 +118,7 @@ public class DataExpiryDMTest {
     @Test
     public void ttl函数返回无效值时缓存结果中包含异常() {
         ICacheStorage<String, String> storage = new LruMemCacheStorage.Builder<String, String>()
-                .ttl((p, core) -> null).build();
+                .pTtl((p, core) -> null).build();
         DataManager<String, String> dataManager = DataManager.Builder
                 .get("ttl函数无效值", datasource)
                 .withCache(storage)

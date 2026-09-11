@@ -18,13 +18,14 @@ public class DataPack<Data> {
 
     /**
      * 该数据的生存时间[Time To Live](时间段)
+     * <br>正值表示自当前时刻起剩余的有效时长，0表示刚到期/未知，负值表示已过期(绝对值为已超时的时长)
      */
     public final long pTtl;
 
     public DataPack(DataCore<Data> dataCore, Object provider, long pTtl) {
         this.dataCore = dataCore;
         this.provider = provider;
-        this.pTtl = Math.max(pTtl, 0);
+        this.pTtl = pTtl;
     }
 
     public Data getData() {

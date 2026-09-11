@@ -26,31 +26,33 @@ public class CacheMissDMTest {
 
     @Test
     public void 未命中时回调处理器并传入旧数据信息() throws Exception {
-        List<DataCore<String>> invalidCoreHolder = new ArrayList<>();
+        List<DataPack<String>> invalidPackHolder = new ArrayList<>();
         ICacheStorage<String, String> storage = new LruMemCacheStorage.Builder<String, String>()
                 .pTtl(300).build();
         DataManager<String, String> dataManager = DataManager.Builder
                 .get("未命中回调", datasource)
                 .withCache(storage)
-                .cacheMissHandler((param, invalidCore, fetcher) -> {
-                    invalidCoreHolder.add(invalidCore);
+                .cacheMissHandler((param, invalidPack, fetcher) -> {
+                    invalidPackHolder.add(invalidPack);
                     return fetcher.getData();
                 })
                 .build();
         // 首次访问：未命中但无旧数据
         dataManager.getData("key");
         assert 1 == accessCount.get();
-        assert 1 == invalidCoreHolder.size();
-        assert null == invalidCoreHolder.get(0);
+        assert 1 == invalidPackHolder.size();
+        assert null == invalidPackHolder.get(0);
         // 缓存过期后再次访问：未命中且存在过期旧数据
         Thread.sleep(400);
         dataManager.getData("key");
         assert 2 == accessCount.get();
-        assert 2 == invalidCoreHolder.size();
-        DataCore<String> invalidCore = invalidCoreHolder.get(1);
-        assert null != invalidCore;
-        assert invalidCore.norm;
-        assert "data_key".equals(invalidCore.data);
+        assert 2 == invalidPackHolder.size();
+        DataPack<String> invalidPack = invalidPackHolder.get(1);
+        assert null != invalidPack;
+        assert invalidPack.dataCore.norm;
+        assert "data_key".equals(invalidPack.getData());
+        // 旧数据包的pTtl为负值，绝对值即已超时的时长
+        assert invalidPack.pTtl < 0;
     }
 
     @Test
@@ -61,7 +63,7 @@ public class CacheMissDMTest {
         DataManager<String, String> dataManager = DataManager.Builder
                 .get("自定义回源", datasource)
                 .withCache(storage)
-                .cacheMissHandler((param, invalidCore, fetcher) -> {
+                .cacheMissHandler((param, invalidPack, fetcher) -> {
                     invokeCount.incrementAndGet();
                     return new DataPack<>(DataCore.fromData("兜底数据"), "处理器", Long.MAX_VALUE);
                 })
@@ -83,10 +85,10 @@ public class CacheMissDMTest {
         DataManager<String, String> dataManager = DataManager.Builder
                 .get("旧数据兜底", datasource)
                 .withCache(storage)
-                .cacheMissHandler((param, invalidCore, fetcher) -> {
+                .cacheMissHandler((param, invalidPack, fetcher) -> {
                     // 有可用的旧数据时直接返回，否则访问数据源
-                    if (null != invalidCore && invalidCore.norm) {
-                        return new DataPack<>(invalidCore, "处理器", Long.MAX_VALUE);
+                    if (null != invalidPack && invalidPack.dataCore.norm) {
+                        return new DataPack<>(invalidPack.dataCore, "处理器", Long.MAX_VALUE);
                     }
                     return fetcher.getData();
                 })
@@ -108,7 +110,7 @@ public class CacheMissDMTest {
         DataManager<String, String> dataManager = DataManager.Builder
                 .get("无数据源回源", (IDatasource<String, String>) null)
                 .withCache(storage)
-                .cacheMissHandler((param, invalidCore, fetcher) -> {
+                .cacheMissHandler((param, invalidPack, fetcher) -> {
                     invokeCount.incrementAndGet();
                     return fetcher.getData();
                 })

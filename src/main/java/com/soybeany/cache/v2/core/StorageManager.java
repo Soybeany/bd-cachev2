@@ -3,6 +3,7 @@ package com.soybeany.cache.v2.core;
 import com.soybeany.cache.v2.contract.frame.ICacheStorage;
 import com.soybeany.cache.v2.contract.frame.IKeyLock;
 import com.soybeany.cache.v2.contract.user.*;
+import com.soybeany.cache.v2.exception.BdCacheException;
 import com.soybeany.cache.v2.exception.CacheWaitException;
 import com.soybeany.cache.v2.exception.NoCacheException;
 import com.soybeany.cache.v2.exception.NoDataSourceException;
@@ -27,7 +28,7 @@ class StorageManager<Param, Data> {
         return t;
     });
 
-    private final ICacheMissHandler<Param, Data> defaultCacheMissHandler = (param, invalidCore, fetcher) -> fetcher.getData();
+    private final ICacheMissHandler<Param, Data> defaultCacheMissHandler = (param, invalidPack, fetcher) -> fetcher.getData();
     private final LinkedList<ICacheStorage<Param, Data>> storages = new LinkedList<>();
     private final Set<IOnInvalidListener<Param>> onInvalidListeners = new HashSet<>();
 
@@ -319,11 +320,16 @@ class StorageManager<Param, Data> {
                     }
                 }
                 List<DataPack<Data>> dataPackHolder = new ArrayList<>();
-                // 收集第一个已过期的旧数据，供未命中处理器参考
-                DataCore<Data> invalidCore = onGetInvalidCore(param);
+                // 收集第一个已过期的旧数据包，供未命中处理器参考
+                DataPack<Data> invalidPack = onGetInvalidPack(param);
                 // 数据获取器，封装了数据源访问逻辑(含异步/超时/异常包装)，数据源为null时返回NoDataSourceException包
                 IDataFetcher<Data> fetcher = () -> getDataDirectly(this, param.value, datasource, getDatasourceTimeout(param.paramKey));
-                dataPackHolder.add(cacheMissHandler.onInvoke(param, invalidCore, fetcher));
+                // 处理器的返回值须为有效的数据包(非null且pTtl>0)，防止写回"立即过期"的无效缓存
+                DataPack<Data> result = cacheMissHandler.onInvoke(param, invalidPack, fetcher);
+                if (null == result || result.pTtl <= 0) {
+                    throw new BdCacheException("cacheMissHandler返回了无效的数据包:" + result);
+                }
+                dataPackHolder.add(result);
                 // 在fetch锁内回写所有缓存层，释放锁后其他线程可直接读到
                 if (needStore) {
                     for (int i = storages.size() - 1; i >= 0; i--) {
@@ -398,15 +404,15 @@ class StorageManager<Param, Data> {
     }
 
     /**
-     * 收集第一个已过期的旧数据
+     * 收集第一个已过期的旧数据包
      */
-    private DataCore<Data> onGetInvalidCore(DataParam<Param> param) {
+    private DataPack<Data> onGetInvalidPack(DataParam<Param> param) {
         for (ICacheStorage<Param, Data> storage : storages) {
             try {
                 DataPack<Data> pack = storage.onGetCacheIgnoreExpiry(param);
                 // pTtl不大于0，说明已过期
                 if (pack.pTtl <= 0) {
-                    return pack.dataCore;
+                    return pack;
                 }
             } catch (NoCacheException ignored) {
             }
@@ -419,16 +425,16 @@ class StorageManager<Param, Data> {
      * <br>回源结果为异常且存在旧的正常数据时，临时激活旧数据，有效期由各级缓存的正常数据有效期配置决定
      */
     private ICacheMissHandler<Param, Data> renewWrapper(ICacheMissHandler<Param, Data> cacheMissHandler) {
-        return (param, invalidCore, fetcher) -> {
+        return (param, invalidPack, fetcher) -> {
             // 先尝试获取新数据(异常会按常规缓存，防穿透)
-            DataPack<Data> newDataPack = cacheMissHandler.onInvoke(param, invalidCore, fetcher);
+            DataPack<Data> newDataPack = cacheMissHandler.onInvoke(param, invalidPack, fetcher);
             // 新数据正常，或无可续期的旧正常数据时，直接返回
-            if (newDataPack.norm() || null == invalidCore || !invalidCore.norm) {
+            if (newDataPack.norm() || null == invalidPack || !invalidPack.dataCore.norm) {
                 return newDataPack;
             }
             context.logger.onRenewExpiredCache(param, this);
             // 为旧数据续期一次
-            return new DataPack<>(invalidCore, this, Long.MAX_VALUE);
+            return new DataPack<>(invalidPack.dataCore, this, Long.MAX_VALUE);
         };
     }
 

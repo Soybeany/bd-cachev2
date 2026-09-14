@@ -66,7 +66,7 @@ public abstract class StdStorage<Param, Data> implements ICacheStorage<Param, Da
         String key = getStorageKey(param);
         try {
             CacheEntity<Data> cacheEntity = onLoadCacheEntity(param, key);
-            onSaveCacheEntity(param, key, new CacheEntity<>(cacheEntity.dataCore, 0));
+            onSaveCacheEntity(param, key, new CacheEntity<>(cacheEntity.dataCore, 0, cacheEntity.pCreateAt));
         } catch (NoCacheException ignore) {
         }
     }

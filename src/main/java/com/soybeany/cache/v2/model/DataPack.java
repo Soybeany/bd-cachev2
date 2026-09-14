@@ -22,10 +22,21 @@ public class DataPack<Data> {
      */
     public final long pTtl;
 
+    /**
+     * 数据的创建时间戳(时间点)，即数据首次写入任一缓存层的时间
+     * <br>0表示未知(如旧版本写入的缓存数据、未落缓存前新建的数据包)
+     */
+    public final long pCreateAt;
+
     public DataPack(DataCore<Data> dataCore, Object provider, long pTtl) {
+        this(dataCore, provider, pTtl, 0);
+    }
+
+    public DataPack(DataCore<Data> dataCore, Object provider, long pTtl, long pCreateAt) {
         this.dataCore = dataCore;
         this.provider = provider;
         this.pTtl = pTtl;
+        this.pCreateAt = pCreateAt;
     }
 
     public Data getData() {

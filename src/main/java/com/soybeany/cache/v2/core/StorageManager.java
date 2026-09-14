@@ -430,8 +430,8 @@ class StorageManager<Param, Data> {
                 return newDataPack;
             }
             context.logger.onRenewExpiredCache(param, this);
-            // 为旧数据续期一次
-            return new DataPack<>(cachedPack.dataCore, this, Long.MAX_VALUE);
+            // 为旧数据续期一次(保留原始创建时间)
+            return new DataPack<>(cachedPack.dataCore, this, Long.MAX_VALUE, cachedPack.pCreateAt);
         };
     }
 

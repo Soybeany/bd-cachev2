@@ -44,7 +44,7 @@ public class LruMemCacheStorage<Param, Data> extends StdStorage<Param, Data> {
         rwLock.writeLock().lock();
         try {
             Set<String> keys = new HashSet<>(mapStorage.getMap().keySet());
-            keys.forEach(key -> mapStorage.onLoad(key).ifPresent(entity -> mapStorage.onSave(key, new CacheEntity<>(entity.dataCore, 0))));
+            keys.forEach(key -> mapStorage.onLoad(key).ifPresent(entity -> mapStorage.onSave(key, new CacheEntity<>(entity.dataCore, 0, entity.pCreateAt))));
         } finally {
             rwLock.writeLock().unlock();
         }
@@ -82,7 +82,7 @@ public class LruMemCacheStorage<Param, Data> extends StdStorage<Param, Data> {
             if (null != deppCopyType) {
                 String coreJson = DataCore.toJson(result.dataCore);
                 try {
-                    result = new CacheEntity<>(DataCore.fromJson(coreJson, deppCopyType), result.pExpireAt);
+                    result = new CacheEntity<>(DataCore.fromJson(coreJson, deppCopyType), result.pExpireAt, result.pCreateAt);
                 } catch (Exception e) {
                     throw new BdCacheException("LoadCache异常:" + e.getMessage());
                 }

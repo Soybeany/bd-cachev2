@@ -120,4 +120,27 @@ public class CacheMissDMTest {
         assert 1 == invokeCount.get();
     }
 
+    @Test
+    public void 处理器抛异常时返回异常包且被缓存() {
+        AtomicInteger invokeCount = new AtomicInteger();
+        ICacheStorage<String, String> storage = new LruMemCacheStorage.Builder<String, String>()
+                .pTtl(60_000).build();
+        DataManager<String, String> dataManager = DataManager.Builder
+                .get("处理器异常", datasource)
+                .withCache(storage)
+                .cacheMissHandler((param, cachedPack, fetcher) -> {
+                    invokeCount.incrementAndGet();
+                    throw new RuntimeException("处理器异常");
+                })
+                .build();
+        // 处理器抛异常时，返回包含该异常的异常包
+        assert !dataManager.getDataPack("key").norm();
+        assert 1 == invokeCount.get();
+        assert 0 == accessCount.get();
+        // 异常包已写回缓存(防穿透)，再次访问直接命中缓存中的异常
+        assert !dataManager.getDataPack("key").norm();
+        assert 1 == invokeCount.get();
+        assert 0 == accessCount.get();
+    }
+
 }

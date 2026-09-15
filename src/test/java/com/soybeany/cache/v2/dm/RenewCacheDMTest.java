@@ -63,4 +63,54 @@ public class RenewCacheDMTest {
         assert dataPack.provider == dataManager.storages().get(0);
     }
 
+    @Test
+    public void 处理器抛异常时续期旧数据() throws Exception {
+        ICacheStorage<String, String> storage = new LruMemCacheStorage.Builder<String, String>().pTtl(200).build();
+        DataManager<String, String> dataManager = DataManager.Builder
+                .get("续期测试", datasource)
+                .withCache(storage)
+                .cacheMissHandler((param, cachedPack, fetcher) -> {
+                    // 存在旧的正常数据时抛异常，模拟处理器内部异常
+                    if (null != cachedPack && cachedPack.dataCore.norm) {
+                        throw new RuntimeException("处理器异常");
+                    }
+                    return fetcher.getData();
+                })
+                .enableRenewExpiredCache(true)
+                .build();
+        // 首次访问数据源
+        DataPack<String> dataPack = dataManager.getDataPack("key");
+        assert "success".equals(dataPack.getData());
+        assert dataPack.provider == dataManager.defaultDatasource();
+        // 缓存过期后，处理器抛异常，应续期旧的正常数据
+        Thread.sleep(250);
+        dataPack = dataManager.getDataPack("key");
+        assert dataPack.norm();
+        assert "success".equals(dataPack.getData());
+        assert dataPack.provider != dataManager.defaultDatasource();
+        // 续期数据已写回一级缓存
+        dataPack = dataManager.getDataPack("key");
+        assert dataPack.provider == dataManager.storages().get(0);
+    }
+
+    @Test
+    public void 处理器抛异常且无旧数据时按常规缓存() {
+        ICacheStorage<String, String> storage = new LruMemCacheStorage.Builder<String, String>().pTtl(60_000).build();
+        DataManager<String, String> dataManager = DataManager.Builder
+                .get("续期测试", datasource)
+                .withCache(storage)
+                .cacheMissHandler((param, cachedPack, fetcher) -> {
+                    throw new RuntimeException("处理器异常");
+                })
+                .enableRenewExpiredCache(true)
+                .build();
+        // 无旧数据(首次访问)时处理器抛异常，仍返回异常包
+        DataPack<String> dataPack = dataManager.getDataPack("key");
+        assert !dataPack.norm();
+        // 异常包被缓存(防穿透)，再次访问直接命中缓存中的异常
+        dataPack = dataManager.getDataPack("key");
+        assert !dataPack.norm();
+        assert dataPack.provider == dataManager.storages().get(0);
+    }
+
 }

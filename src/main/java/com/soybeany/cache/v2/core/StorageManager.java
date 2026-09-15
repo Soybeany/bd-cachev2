@@ -424,12 +424,17 @@ class StorageManager<Param, Data> {
 
     /**
      * 为缓存未命中处理器装配续期装饰器
-     * <br>回源结果为异常且存在旧的正常数据时，临时激活旧数据，有效期由各级缓存的正常数据有效期配置决定
+     * <br>回源结果为异常(含处理器自身抛异常)且存在旧的正常数据时，临时激活旧数据，有效期由各级缓存的正常数据有效期配置决定
      */
     private ICacheMissHandler<Param, Data> renewWrapper(ICacheMissHandler<Param, Data> cacheMissHandler) {
         return (param, cachedPack, fetcher) -> {
-            // 先尝试获取新数据(异常会按常规缓存，防穿透)
-            DataPack<Data> newDataPack = cacheMissHandler.onInvoke(param, cachedPack, fetcher);
+            // 先尝试获取新数据(处理器抛异常时按异常包处理，可续期或按常规缓存防穿透)
+            DataPack<Data> newDataPack;
+            try {
+                newDataPack = cacheMissHandler.onInvoke(param, cachedPack, fetcher);
+            } catch (RuntimeException e) {
+                newDataPack = new DataPack<>(DataCore.fromException(e), this, Long.MAX_VALUE);
+            }
             // 新数据正常，或无可续期的旧正常数据时，直接返回
             if (newDataPack.norm() || null == cachedPack || !cachedPack.dataCore.norm) {
                 return newDataPack;

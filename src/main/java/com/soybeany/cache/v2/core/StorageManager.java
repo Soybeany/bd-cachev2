@@ -325,7 +325,12 @@ class StorageManager<Param, Data> {
                 // 数据获取器，封装了数据源访问逻辑(含异步/超时/异常包装)，数据源为null时返回NoDataSourceException包
                 IDataFetcher<Data> fetcher = () -> getDataDirectly(this, param.value, datasource, getDatasourceTimeout(param.paramKey));
                 // 处理器的返回值须为有效的数据包(非null且pTtl>0)，防止写回"立即过期"的无效缓存
-                DataPack<Data> result = cacheMissHandler.onInvoke(param, cachedPack, fetcher);
+                DataPack<Data> result;
+                try {
+                    result = cacheMissHandler.onInvoke(param, cachedPack, fetcher);
+                } catch (RuntimeException e) {
+                    result = new DataPack<>(DataCore.fromException(e), this, Long.MAX_VALUE);
+                }
                 if (null == result || result.pTtl <= 0) {
                     throw new BdCacheException("cacheMissHandler返回了无效的数据包:" + result);
                 }

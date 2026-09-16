@@ -74,7 +74,7 @@ public class RenewCacheDMTest {
                     if (null != cachedPack && cachedPack.dataCore.norm) {
                         throw new RuntimeException("处理器异常");
                     }
-                    return fetcher.getData();
+                    return new DataPack<>(fetcher.getData(), fetcher.getProvider(), Long.MAX_VALUE);
                 })
                 .enableRenewExpiredCache(true)
                 .build();

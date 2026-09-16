@@ -28,7 +28,7 @@ class StorageManager<Param, Data> {
         return t;
     });
 
-    private final ICacheMissHandler<Param, Data> defaultCacheMissHandler = (param, cachedPack, fetcher) -> fetcher.getData();
+    private final ICacheMissHandler<Param, Data> defaultCacheMissHandler = (param, cachedPack, fetcher) -> new DataPack<>(fetcher.getData(), fetcher.getProvider(), Long.MAX_VALUE);
     private final LinkedList<ICacheStorage<Param, Data>> storages = new LinkedList<>();
     private final Set<IOnInvalidListener<Param>> onInvalidListeners = new HashSet<>();
 
@@ -50,17 +50,24 @@ class StorageManager<Param, Data> {
     private boolean enableRenewExpiredCache;
 
     public DataPack<Data> getDataDirectly(Object noDatasourceInvoker, Param param, IDatasource<Param, Data> datasource, Long timeoutMs) {
+        DataCore<Data> dataCore = onFetchDataCore(param, datasource, timeoutMs);
+        return new DataPack<>(dataCore, null != datasource ? datasource : noDatasourceInvoker, Long.MAX_VALUE);
+    }
+
+    /**
+     * 以指定param访问数据源，将取数结果(含无数据源/超时/异常)统一包装为DataCore
+     */
+    private DataCore<Data> onFetchDataCore(Param param, IDatasource<Param, Data> datasource, Long timeoutMs) {
         // 没有指定数据源
         if (null == datasource) {
-            return new DataPack<>(DataCore.fromException(new NoDataSourceException()), noDatasourceInvoker, Long.MAX_VALUE);
+            return DataCore.fromException(new NoDataSourceException());
         }
         // 同步模式（不开启异步数据源访问）
         if (null == timeoutMs) {
             try {
-                Data data = datasource.onGetData(param);
-                return new DataPack<>(DataCore.fromData(data), datasource, Long.MAX_VALUE);
+                return DataCore.fromData(datasource.onGetData(param));
             } catch (RuntimeException e) {
-                return new DataPack<>(DataCore.fromException(e), datasource, Long.MAX_VALUE);
+                return DataCore.fromException(e);
             }
         }
         // 异步执行+超时
@@ -82,9 +89,9 @@ class StorageManager<Param, Data> {
                 }
                 throw new RuntimeException(cause);
             }
-            return new DataPack<>(DataCore.fromData(data), datasource, Long.MAX_VALUE);
+            return DataCore.fromData(data);
         } catch (RuntimeException e) {
-            return new DataPack<>(DataCore.fromException(e), datasource, Long.MAX_VALUE);
+            return DataCore.fromException(e);
         }
     }
 
@@ -322,8 +329,8 @@ class StorageManager<Param, Data> {
                 List<DataPack<Data>> dataPackHolder = new ArrayList<>();
                 // 收集第一个缓存中已有的数据包，供未命中处理器参考
                 DataPack<Data> cachedPack = onGetCachedPack(param);
-                // 数据获取器，封装了数据源访问逻辑(含异步/超时/异常包装)，数据源为null时返回NoDataSourceException包
-                IDataFetcher<Data> fetcher = () -> getDataDirectly(this, param.value, datasource, getDatasourceTimeout(param.paramKey));
+                // 数据获取器，封装了数据源访问逻辑(含异步/超时/异常包装)，数据源为null时取回NoDataSourceException的DataCore
+                IDataFetcher<Data> fetcher = new DatasourceFetcher(param, datasource);
                 // 处理器的返回值须为有效的数据包(非null且pTtl>0)，防止写回"立即过期"的无效缓存
                 DataPack<Data> result;
                 try {
@@ -446,6 +453,30 @@ class StorageManager<Param, Data> {
     }
 
     // ****************************************内部类****************************************
+
+    /**
+     * 数据源获取器：以当前请求的param访问数据源
+     */
+    private class DatasourceFetcher implements IDataFetcher<Data> {
+
+        private final DataParam<Param> param;
+        private final IDatasource<Param, Data> datasource;
+
+        DatasourceFetcher(DataParam<Param> param, IDatasource<Param, Data> datasource) {
+            this.param = param;
+            this.datasource = datasource;
+        }
+
+        @Override
+        public DataCore<Data> getData() {
+            return onFetchDataCore(param.value, datasource, getDatasourceTimeout(param.paramKey));
+        }
+
+        @Override
+        public Object getProvider() {
+            return null != datasource ? datasource : StorageManager.this;
+        }
+    }
 
     private interface ICallback1<Param, Data, T> {
         T onInvoke(ICacheStorage<Param, Data> storage, T data);

@@ -113,4 +113,46 @@ public class CreateAtDMTest {
         assert 1 == invokeCount.get();
     }
 
+    @Test
+    public void 回源时可基于取数结果指定数据的创建时间() {
+        ICacheStorage<String, String> storage = new LruMemCacheStorage.Builder<String, String>()
+                .pTtl(60_000).build();
+        // 模拟数据源侧数据的真实创建时间(早于本次回源时刻)
+        long customCreateAt = System.currentTimeMillis() - 10_000L;
+        DataManager<String, String> dataManager = DataManager.Builder
+                .get("createAt回源指定", datasource)
+                .withCache(storage)
+                // 自行组装数据包：取数正常时指定创建时间，异常时视为未知
+                .cacheMissHandler((param, cachedPack, fetcher) -> {
+                    DataCore<String> dataCore = fetcher.getData();
+                    return new DataPack<>(dataCore, fetcher.getProvider(), Long.MAX_VALUE, dataCore.norm ? customCreateAt : 0);
+                })
+                .build();
+        // 指定的创建时间直接反映在返回的数据包上，且数据来源为透传的数据源
+        DataPack<String> pack = dataManager.getDataPack("key");
+        assert "data_key".equals(pack.getData());
+        assert datasource.equals(pack.provider) : "应透传fetcher.getProvider()";
+        assert pack.pCreateAt == customCreateAt : "应使用调用方指定的创建时间";
+        // 落缓存后仍保留指定的创建时间，不会被补齐为写入时间
+        DataPack<String> pack2 = dataManager.getDataPack("key");
+        assert storage.equals(pack2.provider);
+        assert pack2.pCreateAt == customCreateAt : "缓存命中时应保留指定的创建时间";
+        assert 1 == accessCount.get();
+    }
+
+    @Test
+    public void 回源组装时未指定创建时间则按写入时间补齐() {
+        ICacheStorage<String, String> storage = new LruMemCacheStorage.Builder<String, String>()
+                .pTtl(60_000).build();
+        DataManager<String, String> dataManager = DataManager.Builder
+                .get("createAt未指定", datasource)
+                .withCache(storage)
+                .cacheMissHandler((param, cachedPack, fetcher) -> new DataPack<>(fetcher.getData(), fetcher.getProvider(), Long.MAX_VALUE))
+                .build();
+        long before = System.currentTimeMillis();
+        DataPack<String> pack = dataManager.getDataPack("key");
+        // 未指定(0=未知)时，落缓存按首次写入时间补齐
+        assert pack.pCreateAt >= before && pack.pCreateAt <= System.currentTimeMillis() : "应按写入时间补齐";
+    }
+
 }

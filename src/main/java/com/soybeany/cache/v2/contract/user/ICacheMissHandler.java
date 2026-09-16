@@ -18,8 +18,10 @@ public interface ICacheMissHandler<Param, Data> {
      * @param cachedPack 第一个缓存中已有的数据包，可能有效也可能已过期，可能为null(所有缓存级均无数据)；
      *                   pTtl大于0表示仍有效，不大于0表示已过期(负值的绝对值为已超时的时长)；
      *                   pCreateAt为数据首次写入缓存的时间戳，0表示未知(如旧版本写入的缓存数据)，可用于评估数据的陈旧程度
-     * @param fetcher    数据获取器，封装了数据源访问逻辑
-     * @return 取得的数据包，须为非null且pTtl大于0，否则视为无效
+     * @param fetcher    数据获取器，封装了数据源访问逻辑；取回的DataCore由调用方自行组装为数据包，
+     *                   数据来源可通过fetcher.getProvider()透传，创建时间由组装时的pCreateAt指定
+     * @return 取得的数据包，须为非null且pTtl大于0，否则视为无效；
+     *         pCreateAt为0时表示创建时间未知，将在落入缓存时补齐为首次写入的时间
      */
     DataPack<Data> onInvoke(DataParam<Param> param, DataPack<Data> cachedPack, IDataFetcher<Data> fetcher);
 

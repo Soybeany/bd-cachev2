@@ -34,7 +34,7 @@ public class CacheMissDMTest {
                 .withCache(storage)
                 .cacheMissHandler((param, cachedPack, fetcher) -> {
                     cachedPackHolder.add(cachedPack);
-                    return fetcher.getData();
+                    return new DataPack<>(fetcher.getData(), fetcher.getProvider(), Long.MAX_VALUE);
                 })
                 .build();
         // 首次访问：未命中但无旧数据
@@ -90,7 +90,7 @@ public class CacheMissDMTest {
                     if (null != cachedPack && cachedPack.dataCore.norm) {
                         return new DataPack<>(cachedPack.dataCore, "处理器", Long.MAX_VALUE);
                     }
-                    return fetcher.getData();
+                    return new DataPack<>(fetcher.getData(), fetcher.getProvider(), Long.MAX_VALUE);
                 })
                 .build();
         // 首次访问数据源
@@ -112,10 +112,10 @@ public class CacheMissDMTest {
                 .withCache(storage)
                 .cacheMissHandler((param, cachedPack, fetcher) -> {
                     invokeCount.incrementAndGet();
-                    return fetcher.getData();
+                    return new DataPack<>(fetcher.getData(), fetcher.getProvider(), Long.MAX_VALUE);
                 })
                 .build();
-        // 无数据源时，处理器仍会被调用，fetcher返回包含NoDataSourceException的数据包
+        // 无数据源时，处理器仍会被调用，fetcher取回包含NoDataSourceException的数据核心
         assert !dataManager.containCache("nope");
         assert 1 == invokeCount.get();
     }

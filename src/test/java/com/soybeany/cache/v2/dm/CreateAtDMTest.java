@@ -155,4 +155,64 @@ public class CreateAtDMTest {
         assert pack.pCreateAt >= before && pack.pCreateAt <= System.currentTimeMillis() : "应按写入时间补齐";
     }
 
+    // ********************手工缓存：写入storage时补齐********************
+
+    @Test
+    public void 手工缓存数据与异常读取时均带创建时间() {
+        ICacheStorage<String, String> storage = new LruMemCacheStorage.Builder<String, String>()
+                .pTtl(60_000).build();
+        DataManager<String, String> dataManager = DataManager.Builder
+                .get("createAt手工", datasource)
+                .withCache(storage)
+                .build();
+        long before = System.currentTimeMillis();
+        dataManager.cacheData("d_key", "手工数据");
+        dataManager.cacheException("e_key", new RuntimeException("手工异常"));
+        // 手工缓存的数据：写回storage时以该层时钟补齐创建时间
+        DataPack<String> dPack = dataManager.getCacheDataPack("d_key");
+        assert dPack.norm();
+        assert dPack.pCreateAt >= before && dPack.pCreateAt <= System.currentTimeMillis() : "手工缓存数据应带创建时间";
+        // 手工缓存的异常：同样在写回storage时补齐创建时间
+        DataPack<String> ePack = dataManager.getCacheDataPack("e_key");
+        assert !ePack.norm();
+        assert ePack.pCreateAt >= before && ePack.pCreateAt <= System.currentTimeMillis() : "手工缓存异常应带创建时间";
+    }
+
+    @Test
+    public void 异常结果落缓存后带创建时间且命中保持不变() throws Exception {
+        ICacheStorage<String, String> storage = new LruMemCacheStorage.Builder<String, String>()
+                .pTtl(60_000).build();
+        AtomicInteger invokeCount = new AtomicInteger();
+        IDatasource<String, String> errDatasource = s -> {
+            invokeCount.incrementAndGet();
+            throw new RuntimeException("回源异常");
+        };
+        DataManager<String, String> dataManager = DataManager.Builder
+                .get("createAt异常回源", errDatasource)
+                .withCache(storage)
+                .build();
+        long before = System.currentTimeMillis();
+        // 回源异常会作为防穿透数据落缓存，写回时以该层时钟补齐创建时间
+        DataPack<String> pack = dataManager.getDataPack("key");
+        assert !pack.norm();
+        assert pack.pCreateAt >= before && pack.pCreateAt <= System.currentTimeMillis() : "缓存的异常应带创建时间";
+        // 再次命中缓存(不再回源)，创建时间保持为首次写入值
+        DataPack<String> pack2 = dataManager.getDataPack("key");
+        assert storage.equals(pack2.provider);
+        assert pack2.pCreateAt == pack.pCreateAt : "命中缓存时异常的创建时间应保持不变";
+        assert 1 == invokeCount.get();
+    }
+
+    // ********************不经存储层：保持为0********************
+
+    @Test
+    public void 未经存储层写入时创建时间保持为0() {
+        // 无任何存储层：数据/异常均不落缓存，创建时间保持未知(0)
+        DataManager<String, String> dataManager = DataManager.Builder
+                .get("createAt无存储", datasource)
+                .build();
+        assert 0 == dataManager.getDataPack("key").pCreateAt : "无存储层时取数包创建时间应为0";
+        assert 0 == dataManager.getDataPackDirectly("key").pCreateAt : "直连取数不写缓存，创建时间应为0";
+    }
+
 }
